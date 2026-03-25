@@ -1,0 +1,123 @@
+import { Worker, type Job } from "bullmq";
+import { db } from "../db/client.js";
+import { connectionOptions, QUEUE_NAMES, type OrderJobData, type OrderJobName } from "./queue.js";
+import { topUp, SupplierError } from "../services/supplier.service.js";
+import { markAsProcessing, markAsSuccess, markAsFailed } from "../services/order.service.js";
+import { earnPoints } from "../services/point.service.js";
+import { invalidateBalanceCache } from "../services/balance.service.js";
+import {
+  notifySuccess,
+  notifyFailed,
+  notifyAdminOrderFailed,
+} from "../services/notification.service.js";
+
+// ─── Processor ────────────────────────────────────────────────────────────────
+
+async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise<void> {
+  const { orderId } = job.data;
+
+  // Ambil order + user dalam satu query
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: { user: true },
+  });
+
+  if (order === null) {
+    // Order tidak ada — buang job tanpa retry
+    throw new Error(`Order ${orderId} tidak ditemukan, skip.`);
+  }
+
+  // Guard: hanya proses order yang masih PAID
+  if (order.status !== "PAID") {
+    return; // Sudah diproses sebelumnya (idempotent)
+  }
+
+  // PAID → PROCESSING (gunakan orderId sebagai ref_id Digiflazz)
+  await markAsProcessing(orderId, orderId);
+
+  let topUpResult;
+  try {
+    topUpResult = await topUp({
+      refId: orderId,
+      buyerSkuCode: order.itemCode,
+      customerNo: order.gameUserId,
+    });
+  } catch (err) {
+    // Digiflazz langsung return "Gagal"
+    const adminNote =
+      err instanceof SupplierError ? err.message : "Unknown supplier error";
+
+    const failed = await markAsFailed(orderId, adminNote);
+
+    await Promise.allSettled([
+      notifyFailed(failed, order.user.platform, order.user.platformUserId),
+      notifyAdminOrderFailed(failed, order.user.platform, order.user.username),
+    ]);
+
+    // Re-throw supaya BullMQ catat sebagai failed (dan retry jika masih ada attempts)
+    throw err;
+  }
+
+  // Status "Pending" → Digiflazz masih proses, tunggu webhook
+  if (topUpResult.status === "Pending") {
+    return;
+  }
+
+  // Status "Sukses" → selesaikan langsung tanpa tunggu webhook
+  if (topUpResult.status === "Sukses") {
+    const success = await markAsSuccess(orderId);
+
+    const [pointsResult] = await Promise.allSettled([
+      earnPoints(order.userId, orderId, order.amount),
+      invalidateBalanceCache(),
+    ]);
+
+    const pointsEarned =
+      pointsResult.status === "fulfilled" ? pointsResult.value : 0;
+
+    // Ambil total poin terbaru untuk ditampilkan di notif
+    const { getActivePoints } = await import("../services/point.service.js");
+    const totalPoints = await getActivePoints(order.userId);
+
+    await notifySuccess(
+      success,
+      order.user.platform,
+      order.user.platformUserId,
+      pointsEarned,
+      totalPoints,
+    );
+  }
+}
+
+// ─── Worker ───────────────────────────────────────────────────────────────────
+
+export const orderWorker = new Worker<OrderJobData, void, OrderJobName>(
+  QUEUE_NAMES.ORDER,
+  processOrder,
+  {
+    connection: { ...connectionOptions, maxRetriesPerRequest: null },
+    concurrency: 5,
+  },
+);
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+orderWorker.on("completed", (job) => {
+  console.info(`[order-worker] Job ${job.id} selesai — order ${job.data.orderId}`);
+});
+
+orderWorker.on("failed", (job, err) => {
+  console.error(
+    `[order-worker] Job ${job?.id ?? "unknown"} gagal — order ${job?.data.orderId ?? "-"}: ${err.message}`,
+  );
+});
+
+orderWorker.on("error", (err) => {
+  console.error("[order-worker] Worker error:", err);
+});
+
+// ─── Graceful Shutdown ────────────────────────────────────────────────────────
+
+export async function closeOrderWorker(): Promise<void> {
+  await orderWorker.close();
+}

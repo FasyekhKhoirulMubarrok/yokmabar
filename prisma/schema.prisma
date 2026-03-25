@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(uuid())
+  platform       Platform
+  platformUserId String
+  username       String?
+  createdAt      DateTime @default(now())
+  orders         Order[]
+  points         Point[]
+
+  @@unique([platform, platformUserId])
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  brand        String
+  category     String
+  itemCode     String   @unique
+  itemName     String
+  price        Int
+  isActive     Boolean  @default(true)
+  isPopular    Boolean  @default(false)
+  displayOrder Int      @default(999)
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([brand])
+  @@index([isActive, isPopular])
+  @@index([category])
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  game          String
+  gameUserId    String
+  gameServerId  String?
+  itemCode      String
+  itemName      String
+  amount        Int
+  status        OrderStatus @default(PENDING)
+  paymentMethod String?
+  paymentUrl    String?
+  paymentRef    String?     @unique
+  supplierRef   String?     @unique
+  adminNote     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  expiredAt     DateTime
+  point         Point?
+
+  @@index([userId])
+  @@index([status])
+  @@index([paymentRef])
+}
+
+model Point {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  orderId     String?   @unique
+  order       Order?    @relation(fields: [orderId], references: [id])
+  type        PointType
+  amount      Int
+  description String
+  expiredAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiredAt])
+}
+
+enum Platform {
+  TELEGRAM
+  DISCORD
+  WHATSAPP
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SUCCESS
+  FAILED
+  EXPIRED
+}
+
+enum PointType {
+  EARNED
+  REDEEMED
+  EXPIRED
+}
