@@ -5,6 +5,7 @@ import { redis } from "../db/redis.js";
 import health from "./health.js";
 import webhookDuitku from "./webhook.duitku.js";
 import webhookDigiflazz from "./webhook.digiflazz.js";
+import { triggerOndemandSync } from "../jobs/sync.worker.js";
 
 const app = new Hono();
 
@@ -61,6 +62,11 @@ app.use("/health", async (c, next) => {
 app.route("/health", health);
 app.route("/webhook/duitku", webhookDuitku);
 app.route("/webhook/digiflazz", webhookDigiflazz);
+
+app.post("/admin/sync-prices", async (c) => {
+  await triggerOndemandSync();
+  return c.json({ message: "Sync job queued." });
+});
 
 // ─── 404 fallback ─────────────────────────────────────────────────────────────
 
