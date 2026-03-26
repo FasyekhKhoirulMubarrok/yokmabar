@@ -82,7 +82,9 @@ function isActiveProduct(p: DigiflazzProduct): boolean {
 }
 
 function isPopularBrand(brand: string): boolean {
-  return (POPULAR_BRANDS as readonly string[]).includes(brand);
+  return (POPULAR_BRANDS as readonly string[]).some(
+    (b) => b.toLowerCase() === brand.toLowerCase(),
+  );
 }
 
 // ─── Upsert to DB ─────────────────────────────────────────────────────────────
@@ -265,7 +267,7 @@ export async function triggerOndemandSync(): Promise<void> {
   await syncQueue.add(
     "ondemand-sync",
     { type: "ondemand" },
-    { jobId: `ondemand-sync:${Date.now()}` },
+    { jobId: `ondemand-sync-${Date.now()}` },
   );
 }
 
