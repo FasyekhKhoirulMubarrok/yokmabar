@@ -248,7 +248,7 @@ export async function handleTopupModalSubmit(
   }
 
   const confirmButton = new ButtonBuilder()
-    .setCustomId(`pay-QRIS-${userId}-${product.itemCode}-${gameUserId}-${gameServerId ?? ""}`)
+    .setCustomId(`pay|QRIS|${userId}|${product.itemCode}|${gameUserId}|${gameServerId ?? ""}`)
     .setLabel("💳 Bayar dengan QRIS")
     .setStyle(ButtonStyle.Primary);
 
@@ -276,8 +276,8 @@ export async function handleTopupButton(
     return;
   }
 
-  // Format: "pay-QRIS-{userId}-{itemCode}-{gameUserId}-{gameServerId}"
-  const parts = interaction.customId.split("-");
+  // Format: "pay|QRIS|{userId}|{itemCode}|{gameUserId}|{gameServerId}"
+  const parts = interaction.customId.split("|");
   const userId = parts[2];
   const itemCode = parts[3];
   const gameUserId = parts[4] ?? "";

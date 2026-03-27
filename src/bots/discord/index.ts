@@ -50,7 +50,7 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
     // Button
     if (interaction.isButton()) {
       if (
-        interaction.customId.startsWith("pay-") ||
+        interaction.customId.startsWith("pay|") ||
         interaction.customId === "topup_cancel"
       ) {
         await handleTopupButton(interaction);
