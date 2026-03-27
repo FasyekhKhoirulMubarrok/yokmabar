@@ -2,6 +2,7 @@ import { Api } from "grammy";
 import { REST, Routes } from "discord.js";
 import { type Platform, type Order } from "@prisma/client";
 import { config } from "../config.js";
+import { stripBrandPrefix } from "../utils/formatter.js";
 
 // ─── Clients (lazy-initialized) ───────────────────────────────────────────────
 
@@ -126,7 +127,7 @@ export async function notifySuccess(
 
   const text =
     `🎉 <b>Top up berhasil!</b>\n` +
-    `${order.itemName} sudah masuk ke akun kamu.\n` +
+    `${stripBrandPrefix(order.game, order.itemName)} sudah masuk ke akun kamu.\n` +
     `Cek in-game sekarang dan langsung gas! 🚀` +
     pointLine;
 
@@ -220,7 +221,7 @@ export async function notifyAdminOrderFailed(
     fields: [
       { name: "Order ID", value: orderRef, inline: true },
       { name: "Game", value: order.game, inline: true },
-      { name: "Item", value: order.itemName, inline: true },
+      { name: "Item", value: stripBrandPrefix(order.game, order.itemName), inline: true },
       { name: "User", value: `${userLabel} (${platform})`, inline: true },
       { name: "Game ID", value: order.gameUserId, inline: true },
       { name: "Error", value: order.adminNote ?? "-", inline: false },

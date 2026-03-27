@@ -98,7 +98,7 @@ const BRAND_PREFIXES: Record<string, string[]> = {
  * Strip prefix brand dari itemName agar tidak repetisi di label.
  * Contoh: "MOBILELEGEND - 86 Diamond" → "86 Diamond"
  */
-function stripBrandPrefix(brand: string, itemName: string): string {
+export function stripBrandPrefix(brand: string, itemName: string): string {
   const prefixes = BRAND_PREFIXES[brand.toLowerCase()] ?? [brand.toLowerCase()];
   const nameLower = itemName.toLowerCase();
 

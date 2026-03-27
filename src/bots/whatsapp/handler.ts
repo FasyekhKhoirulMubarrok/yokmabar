@@ -11,6 +11,7 @@ import { createInvoice, type PaymentMethod } from "../../services/payment.servic
 import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { config } from "../../config.js";
+import { stripBrandPrefix } from "../../utils/formatter.js";
 import { type Product } from "@prisma/client";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -357,7 +358,7 @@ async function showConfirmation(phone: string, state: WaState): Promise<void> {
   const text =
     `📋 *Konfirmasi Order*\n\n` +
     `Game     : ${product.brand}\n` +
-    `Item     : ${product.itemName}\n` +
+    `Item     : ${stripBrandPrefix(product.brand, product.itemName)}\n` +
     `Harga    : ${formatRupiah(product.price)}\n` +
     `${idLine}\n\n` +
     `1. ✅ Konfirmasi\n2. ❌ Batal` +

@@ -16,7 +16,7 @@ import {
 } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
 import { db } from "../../../db/client.js";
-import { formatNominalLabel, generateQrBuffer } from "../../../utils/formatter.js";
+import { formatNominalLabel, generateQrBuffer, stripBrandPrefix } from "../../../utils/formatter.js";
 import {
   getPopularBrands,
   getProductsByBrand,
@@ -231,7 +231,7 @@ export async function handleTopupModalSubmit(
     .setTitle("📋 Konfirmasi Top Up")
     .addFields(
       { name: "Game",    value: product.brand,            inline: true },
-      { name: "Item",    value: product.itemName,          inline: true },
+      { name: "Item",    value: stripBrandPrefix(product.brand, product.itemName), inline: true },
       { name: "Harga",   value: formatRupiah(product.price), inline: true },
       { name: "User ID", value: idDisplay,                 inline: false },
     )
@@ -353,7 +353,7 @@ export async function handleTopupButton(
     ]);
     await interaction.editReply({
       content:
-        `✅ **Order diproses!**\nOrder: \`#${order.paymentRef}\`\nItem: ${product.itemName}\n\nPembayaran menggunakan poin. Top up sedang diproses! 🚀`,
+        `✅ **Order diproses!**\nOrder: \`#${order.paymentRef}\`\nItem: ${stripBrandPrefix(product.brand, product.itemName)}\n\nPembayaran menggunakan poin. Top up sedang diproses! 🚀`,
       embeds: [],
       components: [],
     });

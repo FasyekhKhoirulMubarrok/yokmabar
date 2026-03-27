@@ -5,7 +5,7 @@ import {
 } from "@grammyjs/conversations";
 import { InputFile } from "grammy";
 import { db } from "../../../db/client.js";
-import { formatNominalLabel, generateQrBuffer, getBrandEmoji } from "../../../utils/formatter.js";
+import { formatNominalLabel, generateQrBuffer, getBrandEmoji, stripBrandPrefix } from "../../../utils/formatter.js";
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
@@ -248,7 +248,7 @@ async function stepConfirm(
   const text =
     `📋 <b>Konfirmasi Order</b>\n\n` +
     `Game     : ${product.brand}\n` +
-    `Item     : ${product.itemName}\n` +
+    `Item     : ${stripBrandPrefix(product.brand, product.itemName)}\n` +
     `Harga    : ${formatRupiah(product.price)}\n` +
     `${idLine}\n\n` +
     `Pastikan ID sudah benar ya!`;
@@ -406,7 +406,7 @@ export async function topUpScene(
     await ctx.reply(
       `✅ <b>Order diproses!</b>\n` +
       `Order    : #${order.paymentRef}\n` +
-      `Item     : ${product.itemName}\n\n` +
+      `Item     : ${stripBrandPrefix(product.brand, product.itemName)}\n\n` +
       `Pembayaran menggunakan poin. Top up sedang diproses! 🚀`,
       { parse_mode: "HTML" },
     );
