@@ -338,7 +338,8 @@ export async function handleTopupButton(
       setPaymentUrl(order.id, invoice.paymentUrl),
       scheduleOrderExpiry(order.id),
     ]);
-  } catch {
+  } catch (err) {
+    console.error("[discord] createInvoice error:", err);
     await interaction.editReply({
       content: "😅 Ups, ada gangguan sebentar. Coba lagi dalam beberapa menit ya!",
       embeds: [],

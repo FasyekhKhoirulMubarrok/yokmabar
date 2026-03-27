@@ -409,7 +409,8 @@ export async function topUpScene(
         paymentMethod,
       }),
     );
-  } catch {
+  } catch (err) {
+    console.error("[telegram] createInvoice error:", err);
     await ctx.reply(
       "😅 Ups, ada gangguan sebentar.\nCoba lagi dalam beberapa menit ya!",
     );
