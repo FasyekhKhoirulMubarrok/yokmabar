@@ -129,7 +129,7 @@ export async function scheduleOrderExpiry(orderId: string): Promise<void> {
   await expireQueue.add(
     "expire-order",
     { orderId },
-    { delay: 15 * 60 * 1000, jobId: `expire:${orderId}` },
+    { delay: 15 * 60 * 1000, jobId: `expire-${orderId}` },
   );
 }
 
@@ -138,7 +138,7 @@ export async function scheduleOrderExpiry(orderId: string): Promise<void> {
  * Dipanggil saat webhook Duitku masuk.
  */
 export async function cancelOrderExpiry(orderId: string): Promise<void> {
-  const job = await expireQueue.getJob(`expire:${orderId}`);
+  const job = await expireQueue.getJob(`expire-${orderId}`);
   if (job !== undefined) {
     await job.remove();
   }
@@ -151,7 +151,7 @@ export async function enqueueOrderProcessing(orderId: string): Promise<void> {
   await orderQueue.add(
     "process-order",
     { orderId },
-    { jobId: `order:${orderId}` },
+    { jobId: `order-${orderId}` },
   );
 }
 
