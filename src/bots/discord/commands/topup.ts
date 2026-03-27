@@ -29,10 +29,14 @@ import { type Product } from "@prisma/client";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const GAMES_NEED_SERVER_ID = new Set([
-  "Mobile Legends",
-  "Genshin Impact",
-  "Honkai: Star Rail",
+  "mobile legends",
+  "genshin impact",
+  "honkai: star rail",
 ]);
+
+function needsServerId(brand: string): boolean {
+  return GAMES_NEED_SERVER_ID.has(brand.toLowerCase());
+}
 
 const PAYMENT_METHODS: { id: string; label: string; method: PaymentMethod }[] = [
   { id: "pay:QRIS",  label: "💳 QRIS",  method: "QRIS"  },
@@ -130,7 +134,7 @@ export async function handleTopupAutocomplete(
 // ─── Modal: Input User ID + Server ID ────────────────────────────────────────
 
 export function buildTopupModal(brand: string, itemCode: string): ModalBuilder {
-  const needsServer = GAMES_NEED_SERVER_ID.has(brand);
+  const needsServer = needsServerId(brand);
 
   const modal = new ModalBuilder()
     .setCustomId(`topup_modal:${brand}:${itemCode}`)
@@ -199,10 +203,12 @@ export async function handleTopupModalSubmit(
   const itemCode = parts[2] ?? "";
 
   const gameUserId = interaction.fields.getTextInputValue("gameUserId").trim();
-  const gameServerId = interaction.fields
-    .getTextInputValue("gameServerId")
-    .trim()
-    .replace(/\s/g, "") || null;
+  let gameServerId: string | null = null;
+  try {
+    gameServerId = interaction.fields.getTextInputValue("gameServerId").trim().replace(/\s/g, "") || null;
+  } catch {
+    gameServerId = null;
+  }
 
   // Defer ephemeral — butuh waktu untuk load produk + poin
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
