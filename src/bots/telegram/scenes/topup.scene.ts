@@ -8,9 +8,9 @@ import { db } from "../../../db/client.js";
 import { formatNominalLabel, generateQrBuffer, getBrandEmoji } from "../../../utils/formatter.js";
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
-import { createOrder, setPaymentUrl } from "../../../services/order.service.js";
+import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
 import { createInvoice, type PaymentMethod } from "../../../services/payment.service.js";
-import { scheduleOrderExpiry } from "../../../jobs/queue.js";
+import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -278,16 +278,36 @@ async function stepOfferPoints(
   const summary = await conversation.external(() => getPointSummary(userId));
   if (!summary.canRedeem) return 0;
 
-  const keyboard = new InlineKeyboard()
-    .text(`💰 Pakai ${summary.maxRedeemablePoints} poin (hemat ${formatRupiah(summary.maxDiscount)})`, "points:use")
-    .row()
-    .text("➡️ Lewati", "points:skip");
+  const isFree = summary.maxDiscount >= productPrice;
+  const keyboard = new InlineKeyboard();
 
-  await ctx.reply(
-    `🎁 Kamu punya <b>${summary.activePoints} poin</b>!\n` +
-      `Mau pakai ${summary.maxRedeemablePoints} poin untuk hemat <b>${formatRupiah(summary.maxDiscount)}</b>?`,
-    { reply_markup: keyboard, parse_mode: "HTML" },
-  );
+  if (isFree) {
+    keyboard
+      .text("🎉 Ya, gratis pakai poin!", "points:use")
+      .row()
+      .text("➡️ Bayar normal", "points:skip");
+
+    await ctx.reply(
+      `🎉 <b>Selamat! Poin kamu cukup untuk item ini GRATIS!</b>\n\n` +
+        `Saldo poin : ${summary.activePoints} poin\n` +
+        `Harga item : ${formatRupiah(productPrice)}\n\n` +
+        `Mau pakai poin untuk bayar penuh item ini?`,
+      { reply_markup: keyboard, parse_mode: "HTML" },
+    );
+  } else {
+    const afterDiscount = productPrice - summary.maxDiscount;
+    keyboard
+      .text(`💰 Pakai ${summary.maxRedeemablePoints} poin (hemat ${formatRupiah(summary.maxDiscount)})`, "points:use")
+      .row()
+      .text("➡️ Lewati", "points:skip");
+
+    await ctx.reply(
+      `🎁 Kamu punya <b>${summary.activePoints} poin</b>!\n` +
+        `Mau pakai ${summary.maxRedeemablePoints} poin untuk hemat <b>${formatRupiah(summary.maxDiscount)}</b>?\n` +
+        `Total setelah diskon: <b>${formatRupiah(afterDiscount)}</b>`,
+      { reply_markup: keyboard, parse_mode: "HTML" },
+    );
+  }
 
   const cb = await conversation.waitForCallbackQuery(/^points:.+$/, {
     otherwise: (c) => c.reply("😊 Pilih opsi poin ya!"),
@@ -317,6 +337,15 @@ export async function topUpScene(
   const userId = await conversation.external(() =>
     getOrCreateUser(telegramUser.id, telegramUser.username),
   );
+
+  // Tampilkan saldo poin jika ada
+  const pointSummary = await conversation.external(() => getPointSummary(userId));
+  if (pointSummary.activePoints > 0) {
+    await ctx.reply(
+      `💰 Saldo poin kamu: <b>${pointSummary.activePoints} poin</b> (= hemat ${formatRupiah(pointSummary.maxDiscount)})`,
+      { parse_mode: "HTML" },
+    );
+  }
 
   // ── Step 1: Pilih game ──────────────────────────────────────────────────────
   let brand = await stepSelectGame(conversation, ctx);
@@ -352,7 +381,7 @@ export async function topUpScene(
   const finalAmount = Math.max(product.price - pointDiscount, 0);
 
   // ── Step 7: Buat order + invoice (QRIS) ─────────────────────────────────────
-  await ctx.reply("⏳ Membuat tagihan...");
+  await ctx.reply("⏳ Memproses order...");
 
   const order = await conversation.external(() =>
     createOrder({
@@ -365,6 +394,24 @@ export async function topUpScene(
       amount: finalAmount,
     }),
   );
+
+  // ── Jika poin menutupi full harga, bypass Duitku ────────────────────────────
+  if (finalAmount === 0) {
+    await conversation.external(() =>
+      Promise.all([
+        markAsPaid(order.id, "POINTS"),
+        enqueueOrderProcessing(order.id),
+      ]),
+    );
+    await ctx.reply(
+      `✅ <b>Order diproses!</b>\n` +
+      `Order    : #${order.paymentRef}\n` +
+      `Item     : ${product.itemName}\n\n` +
+      `Pembayaran menggunakan poin. Top up sedang diproses! 🚀`,
+      { parse_mode: "HTML" },
+    );
+    return;
+  }
 
   let invoice;
   try {
@@ -393,7 +440,7 @@ export async function topUpScene(
     ]),
   );
 
-  // ── Kirim tagihan ───────────────────────────────────────────────────────────
+  // ── Kirim tagihan QRIS ──────────────────────────────────────────────────────
   const caption =
     `💳 <b>Tagihan YokMabar</b>\n` +
     `Nominal  : ${formatRupiah(finalAmount)}\n` +

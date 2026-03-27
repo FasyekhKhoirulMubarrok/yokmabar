@@ -1,5 +1,6 @@
 import { PointType } from "@prisma/client";
 import { db } from "../db/client.js";
+import { redis } from "../db/redis.js";
 import { config } from "../config.js";
 
 // ─── Custom Error ─────────────────────────────────────────────────────────────
@@ -130,28 +131,56 @@ export async function redeemPoints(
     );
   }
 
-  const activePoints = await getActivePoints(userId);
-  if (activePoints < pointsToRedeem) {
+  // Redis lock — cegah double redeem dari request bersamaan
+  const lockKey = `point:lock:${userId}`;
+  const locked = await redis.set(lockKey, "1", "EX", 30, "NX");
+  if (locked === null) {
     throw new PointError(
-      `Poin tidak cukup. Aktif: ${activePoints}, dibutuhkan: ${pointsToRedeem}`,
+      "Penukaran poin sedang diproses, coba lagi sebentar",
       "INSUFFICIENT_BALANCE",
     );
   }
 
-  const discount =
-    (pointsToRedeem / config.POINT_REDEEM_UNIT) * config.POINT_REDEEM_VALUE;
+  try {
+    const discount = await db.$transaction(async (tx) => {
+      // Baca saldo di dalam transaksi agar atomic
+      const result = await tx.point.aggregate({
+        where: {
+          userId,
+          type: PointType.EARNED,
+          expiredAt: { gt: new Date() },
+        },
+        _sum: { amount: true },
+      });
+      const activePoints = result._sum.amount ?? 0;
 
-  await db.point.create({
-    data: {
-      userId,
-      type: PointType.REDEEMED,
-      amount: -pointsToRedeem,
-      description: `Penukaran ${pointsToRedeem} poin → diskon Rp ${discount.toLocaleString("id-ID")}`,
-      expiredAt: newExpiry(),
-    },
-  });
+      if (activePoints < pointsToRedeem) {
+        throw new PointError(
+          `Poin tidak cukup. Aktif: ${activePoints}, dibutuhkan: ${pointsToRedeem}`,
+          "INSUFFICIENT_BALANCE",
+        );
+      }
 
-  return discount;
+      const disc =
+        (pointsToRedeem / config.POINT_REDEEM_UNIT) * config.POINT_REDEEM_VALUE;
+
+      await tx.point.create({
+        data: {
+          userId,
+          type: PointType.REDEEMED,
+          amount: -pointsToRedeem,
+          description: `Penukaran ${pointsToRedeem} poin → diskon Rp ${disc.toLocaleString("id-ID")}`,
+          expiredAt: newExpiry(),
+        },
+      });
+
+      return disc;
+    });
+
+    return discount;
+  } finally {
+    await redis.del(lockKey);
+  }
 }
 
 // ─── Expire Points ────────────────────────────────────────────────────────────
