@@ -7,6 +7,7 @@ import {
   handleTopupButton,
 } from "./commands/topup.js";
 import { handleReferralCommand } from "./commands/referral.js";
+import { handleHelpCommand } from "./commands/help.js";
 import { recordServerReferral } from "../../services/referral.service.js";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
@@ -63,6 +64,8 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleTopupCommand(interaction);
       } else if (interaction.commandName === "referral") {
         await handleReferralCommand(interaction);
+      } else if (interaction.commandName === "help") {
+        await handleHelpCommand(interaction);
       }
       return;
     }
