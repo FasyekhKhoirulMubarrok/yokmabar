@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(uuid())
-  platform       Platform
-  platformUserId String
-  username       String?
-  createdAt      DateTime @default(now())
-  orders         Order[]
-  points         Point[]
+  id              String           @id @default(uuid())
+  platform        Platform
+  platformUserId  String
+  username        String?
+  createdAt       DateTime         @default(now())
+  orders          Order[]
+  points          Point[]
+  serverReferrals ServerReferral[]
 
   @@unique([platform, platformUserId])
 }
@@ -39,29 +40,40 @@ model Product {
 }
 
 model Order {
-  id            String      @id @default(uuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id])
-  game          String
-  gameUserId    String
-  gameServerId  String?
-  itemCode      String
-  itemName      String
-  amount        Int
-  status        OrderStatus @default(PENDING)
-  paymentMethod String?
-  paymentUrl    String?
-  paymentRef    String?     @unique
-  supplierRef   String?     @unique
-  adminNote     String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  expiredAt     DateTime
-  point         Point?
+  id             String      @id @default(uuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
+  game           String
+  gameUserId     String
+  gameServerId   String?
+  itemCode       String
+  itemName       String
+  amount         Int
+  status         OrderStatus @default(PENDING)
+  paymentMethod  String?
+  paymentUrl     String?
+  paymentRef     String?     @unique
+  supplierRef    String?     @unique
+  adminNote      String?
+  discordGuildId String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  expiredAt      DateTime
+  point          Point?
 
   @@index([userId])
   @@index([status])
   @@index([paymentRef])
+}
+
+model ServerReferral {
+  id            String   @id @default(uuid())
+  guildId       String   @unique
+  inviterUserId String
+  inviter       User     @relation(fields: [inviterUserId], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@index([inviterUserId])
 }
 
 model Point {

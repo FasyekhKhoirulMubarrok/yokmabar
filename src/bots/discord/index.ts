@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events } from "discord.js";
+import { Client, GatewayIntentBits, Events, AuditLogEvent } from "discord.js";
 import { config } from "../../config.js";
 import {
   handleTopupAutocomplete,
@@ -6,6 +6,7 @@ import {
   handleTopupModalSubmit,
   handleTopupButton,
 } from "./commands/topup.js";
+import { recordServerReferral } from "../../services/referral.service.js";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,30 @@ export const discordClient = new Client({
 
 discordClient.once(Events.ClientReady, (client) => {
   console.info(`[discord-bot] Bot ${client.user.tag} berjalan.`);
+});
+
+// ─── Guild Create (Referral Tracking) ────────────────────────────────────────
+
+discordClient.on(Events.GuildCreate, async (guild) => {
+  try {
+    const auditLogs = await guild.fetchAuditLogs({
+      type: AuditLogEvent.BotAdd,
+      limit: 5,
+    });
+
+    const entry = auditLogs.entries.find(
+      (e) => e.target?.id === discordClient.user?.id,
+    );
+
+    const executor = entry?.executor;
+    if (executor != null) {
+      await recordServerReferral(guild.id, executor.id, executor.username ?? executor.id);
+      console.info(`[discord-bot] Referral dicatat — server: ${guild.name}, inviter: ${executor.username}`);
+    }
+  } catch (err) {
+    // Bot mungkin tidak punya izin VIEW_AUDIT_LOG — abaikan
+    console.warn("[discord-bot] Tidak bisa fetch audit log guildCreate:", err);
+  }
 });
 
 // ─── Interaction Handler ──────────────────────────────────────────────────────
@@ -41,7 +66,7 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
 
     // Modal submit
     if (interaction.isModalSubmit()) {
-      if (interaction.customId.startsWith("topup_modal:")) {
+      if (interaction.customId.startsWith("topup_modal|")) {
         await handleTopupModalSubmit(interaction);
       }
       return;

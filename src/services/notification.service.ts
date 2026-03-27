@@ -167,6 +167,25 @@ export async function notifyExpired(
   await sendToUser(platform, platformUserId, text);
 }
 
+/**
+ * Kirim notif bonus referral ke inviter Discord via DM.
+ */
+export async function notifyReferralBonus(
+  discordUserId: string,
+  bonusPoints: number,
+): Promise<void> {
+  const text =
+    `🎁 Kamu dapat ${bonusPoints} poin bonus!\n` +
+    `Ada pengguna baru yang top up lewat server Discord-mu.\n` +
+    `Poin bisa ditukar diskon di transaksi berikutnya. Yok mabar! 🎮`;
+
+  try {
+    await sendDiscordDm(discordUserId, text);
+  } catch {
+    // DM bisa gagal jika user disable DM — abaikan
+  }
+}
+
 // ─── Admin Notifications ──────────────────────────────────────────────────────
 
 /**

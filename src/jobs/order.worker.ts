@@ -9,7 +9,9 @@ import {
   notifySuccess,
   notifyFailed,
   notifyAdminOrderFailed,
+  notifyReferralBonus,
 } from "../services/notification.service.js";
+import { tryAwardReferralBonus } from "../services/referral.service.js";
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
@@ -86,6 +88,20 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
       pointsEarned,
       totalPoints,
     );
+
+    // Beri bonus poin ke inviter jika order dari server Discord referral
+    const referralResult = await tryAwardReferralBonus(
+      orderId,
+      order.userId,
+      order.discordGuildId,
+    ).catch(() => null);
+
+    if (referralResult !== null) {
+      await notifyReferralBonus(
+        referralResult.inviterDiscordId,
+        referralResult.bonusPoints,
+      ).catch(() => null);
+    }
   }
 }
 

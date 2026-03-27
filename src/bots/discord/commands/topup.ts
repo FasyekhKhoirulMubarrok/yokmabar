@@ -23,9 +23,9 @@ import {
   searchProducts,
 } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
-import { createOrder, setPaymentUrl } from "../../../services/order.service.js";
+import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
-import { scheduleOrderExpiry } from "../../../jobs/queue.js";
+import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ export function buildTopupModal(brand: string, itemCode: string): ModalBuilder {
   const needsServer = needsServerId(brand);
 
   const modal = new ModalBuilder()
-    .setCustomId(`topup_modal:${brand}:${itemCode}`)
+    .setCustomId(`topup_modal|${brand}|${itemCode}`)
     .setTitle(`Top Up ${brand}`);
 
   const userIdInput = new TextInputBuilder()
@@ -193,8 +193,8 @@ export async function handleTopupCommand(
 export async function handleTopupModalSubmit(
   interaction: ModalSubmitInteraction,
 ): Promise<void> {
-  // Parse customId: "topup_modal:{brand}:{itemCode}"
-  const parts = interaction.customId.split(":");
+  // Parse customId: "topup_modal|{brand}|{itemCode}"
+  const parts = interaction.customId.split("|");
   const brand = parts[1] ?? "";
   const itemCode = parts[2] ?? "";
 
@@ -238,19 +238,26 @@ export async function handleTopupModalSubmit(
     .setFooter({ text: "YokMabar · Top up cepat, langsung gas!" })
     .setTimestamp();
 
-  // Tambah info poin jika ada
+  // Tambah info poin
   if (summary.canRedeem) {
+    const isFree = summary.maxDiscount >= product.price;
     embed.addFields({
-      name: "🎁 Poin Tersedia",
-      value: `${summary.activePoints} poin (hemat ${formatRupiah(summary.maxDiscount)})`,
+      name: isFree ? "🎉 GRATIS dengan Poin!" : "🎁 Poin Tersedia",
+      value: isFree
+        ? `${summary.activePoints} poin cukup untuk item ini — tap tombol di bawah!`
+        : `${summary.activePoints} poin → hemat ${formatRupiah(summary.maxDiscount)} (total: ${formatRupiah(product.price - summary.maxDiscount)})`,
       inline: false,
     });
   }
 
+  const confirmLabel = summary.canRedeem && summary.maxDiscount >= product.price
+    ? "🎉 Gratis pakai poin!"
+    : "💳 Bayar dengan QRIS";
+
   const confirmButton = new ButtonBuilder()
     .setCustomId(`pay|QRIS|${userId}|${product.itemCode}|${gameUserId}|${gameServerId ?? ""}`)
-    .setLabel("💳 Bayar dengan QRIS")
-    .setStyle(ButtonStyle.Primary);
+    .setLabel(confirmLabel)
+    .setStyle(summary.canRedeem && summary.maxDiscount >= product.price ? ButtonStyle.Success : ButtonStyle.Primary);
 
   const cancelButton = new ButtonBuilder()
     .setCustomId("topup_cancel")
@@ -298,7 +305,6 @@ export async function handleTopupButton(
     return;
   }
 
-  // Cek apakah user mau pakai poin (tidak ada step terpisah di Discord — skip poin di flow ini)
   const finalAmount = product.price;
 
   // Buat order + invoice
@@ -313,6 +319,7 @@ export async function handleTopupButton(
       itemCode: product.itemCode,
       itemName: product.itemName,
       amount: finalAmount,
+      discordGuildId: interaction.guildId,
     });
 
     invoice = await createInvoice({
@@ -332,6 +339,21 @@ export async function handleTopupButton(
     console.error("[discord] createInvoice error:", err);
     await interaction.editReply({
       content: "😅 Ups, ada gangguan sebentar. Coba lagi dalam beberapa menit ya!",
+      embeds: [],
+      components: [],
+    });
+    return;
+  }
+
+  // ── Jika poin menutupi full harga, bypass Duitku ──────────────────────────
+  if (finalAmount === 0) {
+    await Promise.all([
+      markAsPaid(order.id, "POINTS"),
+      enqueueOrderProcessing(order.id),
+    ]);
+    await interaction.editReply({
+      content:
+        `✅ **Order diproses!**\nOrder: \`#${order.paymentRef}\`\nItem: ${product.itemName}\n\nPembayaran menggunakan poin. Top up sedang diproses! 🚀`,
       embeds: [],
       components: [],
     });

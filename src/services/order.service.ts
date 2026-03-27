@@ -28,6 +28,7 @@ export interface CreateOrderInput {
   itemCode: string;
   itemName: string;
   amount: number;
+  discordGuildId?: string | null;
 }
 
 // ─── State Machine ────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       amount: input.amount,
       status: "PENDING",
       paymentRef: generateOrderRef(),
+      discordGuildId: input.discordGuildId ?? null,
       expiredAt,
     },
   });
