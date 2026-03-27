@@ -6,6 +6,7 @@ import {
   handleTopupModalSubmit,
   handleTopupButton,
 } from "./commands/topup.js";
+import { handleReferralCommand } from "./commands/referral.js";
 import { recordServerReferral } from "../../services/referral.service.js";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
@@ -60,6 +61,8 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === "topup") {
         await handleTopupCommand(interaction);
+      } else if (interaction.commandName === "referral") {
+        await handleReferralCommand(interaction);
       }
       return;
     }

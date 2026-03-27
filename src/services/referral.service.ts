@@ -1,6 +1,55 @@
 import { db } from "../db/client.js";
 import { config } from "../config.js";
 
+// ─── Invite URL ───────────────────────────────────────────────────────────────
+
+const BOT_PERMISSIONS = "117888"; // VIEW_AUDIT_LOG + VIEW_CHANNEL + SEND_MESSAGES + EMBED_LINKS + READ_MESSAGE_HISTORY + ATTACH_FILES
+
+/**
+ * Build link invite unik untuk user.
+ * state = internal userId agar callback bisa lookup tanpa expose Discord ID.
+ */
+export function buildInviteUrl(userId: string): string {
+  const params = new URLSearchParams({
+    client_id: config.DISCORD_CLIENT_ID,
+    scope: "bot applications.commands",
+    permissions: BOT_PERMISSIONS,
+    response_type: "code",
+    redirect_uri: `${config.APP_URL}/oauth/discord/callback`,
+    state: userId,
+  });
+  return `https://discord.com/oauth2/authorize?${params.toString()}`;
+}
+
+// ─── Referral Stats ───────────────────────────────────────────────────────────
+
+export interface ReferralStats {
+  totalServers: number;
+  totalBonusPoints: number;
+}
+
+/**
+ * Statistik referral user — jumlah server dan total poin bonus yang diterima.
+ */
+export async function getReferralStats(userId: string): Promise<ReferralStats> {
+  const [totalServers, bonusAgg] = await Promise.all([
+    db.serverReferral.count({ where: { inviterUserId: userId } }),
+    db.point.aggregate({
+      where: {
+        userId,
+        type: "EARNED",
+        description: "Bonus referral server Discord",
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  return {
+    totalServers,
+    totalBonusPoints: bonusAgg._sum.amount ?? 0,
+  };
+}
+
 // ─── Record Referral ──────────────────────────────────────────────────────────
 
 /**

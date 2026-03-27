@@ -1,8 +1,9 @@
 import { REST, Routes } from "discord.js";
 import { config } from "../../config.js";
 import { topupCommand } from "./commands/topup.js";
+import { referralCommand } from "./commands/referral.js";
 
-const commands = [topupCommand.toJSON()];
+const commands = [topupCommand.toJSON(), referralCommand.toJSON()];
 
 const rest = new REST({ version: "10" }).setToken(config.DISCORD_BOT_TOKEN);
 
