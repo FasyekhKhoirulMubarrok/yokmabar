@@ -3,8 +3,9 @@ import {
   type Conversation,
   type ConversationFlavor,
 } from "@grammyjs/conversations";
+import { InputFile } from "grammy";
 import { db } from "../../../db/client.js";
-import { formatNominalLabel } from "../../../utils/formatter.js";
+import { formatNominalLabel, generateQrBuffer } from "../../../utils/formatter.js";
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl } from "../../../services/order.service.js";
@@ -425,13 +426,22 @@ export async function topUpScene(
   );
 
   // ── Kirim tagihan ───────────────────────────────────────────────────────────
-  await ctx.reply(
+  const caption =
     `💳 <b>Tagihan YokMabar</b>\n` +
-      `Nominal  : ${formatRupiah(finalAmount)}\n` +
-      `Order    : #${order.paymentRef}\n` +
-      `Berlaku  : 15 menit ⏰\n\n` +
-      `Selesaikan pembayaran sebelum waktu habis ya!\n` +
-      `${invoice.paymentUrl}`,
-    { parse_mode: "HTML" },
-  );
+    `Nominal  : ${formatRupiah(finalAmount)}\n` +
+    `Order    : #${order.paymentRef}\n` +
+    `Berlaku  : 15 menit ⏰\n\n` +
+    `Selesaikan pembayaran sebelum waktu habis ya!`;
+
+  if (paymentMethod === "QRIS" && invoice.qrString !== undefined) {
+    const qrBuffer = await conversation.external(() =>
+      generateQrBuffer(invoice.qrString!),
+    );
+    await ctx.replyWithPhoto(new InputFile(qrBuffer, "qris.png"), {
+      caption,
+      parse_mode: "HTML",
+    });
+  } else {
+    await ctx.reply(`${caption}\n${invoice.paymentUrl}`, { parse_mode: "HTML" });
+  }
 }

@@ -50,6 +50,7 @@ export interface CreateInvoiceInput {
 export interface CreateInvoiceResult {
   paymentUrl: string;
   duitkuOrderId: string;
+  qrString?: string;
 }
 
 export interface DuitkuWebhookPayload {
@@ -151,8 +152,6 @@ export async function createInvoice(
     qrisUrl?: string;
   };
 
-  console.info("[payment] Duitku response:", JSON.stringify(data));
-
   if (data.statusCode !== "00" || data.paymentUrl === undefined) {
     throw new PaymentError(
       `Gagal buat invoice: ${data.message ?? "unknown error"}`,
@@ -163,6 +162,7 @@ export async function createInvoice(
   return {
     paymentUrl: data.paymentUrl,
     duitkuOrderId: data.duitkuOrderId ?? "",
+    ...(data.qrString !== undefined && { qrString: data.qrString }),
   };
 }
 

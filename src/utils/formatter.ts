@@ -1,3 +1,14 @@
+import QRCode from "qrcode";
+
+// ─── QR Code ──────────────────────────────────────────────────────────────────
+
+/**
+ * Generate QR code PNG buffer dari string (QRIS atau URL).
+ */
+export async function generateQrBuffer(content: string): Promise<Buffer> {
+  return QRCode.toBuffer(content, { type: "png", width: 400, margin: 2 });
+}
+
 // ─── Rupiah ───────────────────────────────────────────────────────────────────
 
 /**
@@ -45,10 +56,10 @@ export function generatePaymentRef(): string {
 const BRAND_EMOJI: Record<string, string> = {
   "mobile legends": "💎",
   "free fire": "💎",
-  "pubg mobile": "🔫",
+  "pubg mobile": "🪙",
   "genshin impact": "💎",
-  "valorant": "⚔️",
-  "honkai: star rail": "💎",
+  "valorant": "🔷",
+  "honkai: star rail": "✨",
   "telkomsel": "📱",
   "indosat": "📱",
   "tri": "📱",
@@ -75,10 +86,14 @@ export function getBrandEmoji(brand: string): string {
 
 /**
  * Format label nominal untuk tampilan di bot.
- * Contoh: "💎 86 Diamonds — Rp 19.000"
+ * Strip brand prefix dari itemName agar tidak repetisi.
+ * Contoh: "MOBILE LEGENDS 86 Diamonds" → "💎 86 Diamonds — Rp 19.000"
  */
 export function formatNominalLabel(brand: string, itemName: string, price: number): string {
-  return `${getBrandEmoji(brand)} ${itemName} — ${formatRupiah(price)}`;
+  const cleanName = itemName.toLowerCase().startsWith(brand.toLowerCase())
+    ? itemName.slice(brand.length).trim()
+    : itemName;
+  return `${getBrandEmoji(brand)} ${cleanName} — ${formatRupiah(price)}`;
 }
 
 // ─── Poin ─────────────────────────────────────────────────────────────────────

@@ -14,8 +14,9 @@ import {
   type ModalSubmitInteraction,
   type ModalActionRowComponentBuilder,
 } from "discord.js";
+import { AttachmentBuilder } from "discord.js";
 import { db } from "../../../db/client.js";
-import { formatNominalLabel } from "../../../utils/formatter.js";
+import { formatNominalLabel, generateQrBuffer } from "../../../utils/formatter.js";
 import {
   getPopularBrands,
   getProductsByBrand,
@@ -367,5 +368,12 @@ export async function handleTopupButton(
     .setDescription("Selesaikan pembayaran sebelum waktu habis ya!")
     .setTimestamp();
 
-  await interaction.editReply({ embeds: [tagihanEmbed], components: [linkRow] });
+  if (paymentMethod === "QRIS" && invoice.qrString !== undefined) {
+    const qrBuffer = await generateQrBuffer(invoice.qrString);
+    const attachment = new AttachmentBuilder(qrBuffer, { name: "qris.png" });
+    tagihanEmbed.setImage("attachment://qris.png");
+    await interaction.editReply({ embeds: [tagihanEmbed], files: [attachment], components: [] });
+  } else {
+    await interaction.editReply({ embeds: [tagihanEmbed], components: [linkRow] });
+  }
 }
