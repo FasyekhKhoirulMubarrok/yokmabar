@@ -84,15 +84,38 @@ export function getBrandEmoji(brand: string): string {
   return BRAND_EMOJI[brand.toLowerCase()] ?? "🎮";
 }
 
+// Prefix-prefix yang mungkin dipakai Digiflazz per brand
+const BRAND_PREFIXES: Record<string, string[]> = {
+  "mobile legends": ["mobile legends", "mobilelegend"],
+  "free fire": ["free fire", "frefire", "ff"],
+  "pubg mobile": ["pubg mobile", "pubg"],
+  "genshin impact": ["genshin impact", "genshin"],
+  "valorant": ["valorant"],
+  "honkai: star rail": ["honkai: star rail", "honkai star rail", "honkai"],
+};
+
+/**
+ * Strip prefix brand dari itemName agar tidak repetisi di label.
+ * Contoh: "MOBILELEGEND - 86 Diamond" → "86 Diamond"
+ */
+function stripBrandPrefix(brand: string, itemName: string): string {
+  const prefixes = BRAND_PREFIXES[brand.toLowerCase()] ?? [brand.toLowerCase()];
+  const nameLower = itemName.toLowerCase();
+
+  for (const prefix of prefixes) {
+    if (nameLower.startsWith(prefix)) {
+      return itemName.slice(prefix.length).replace(/^[\s\-–—]+/, "").trim();
+    }
+  }
+  return itemName;
+}
+
 /**
  * Format label nominal untuk tampilan di bot.
- * Strip brand prefix dari itemName agar tidak repetisi.
- * Contoh: "MOBILE LEGENDS 86 Diamonds" → "💎 86 Diamonds — Rp 19.000"
+ * Contoh: "MOBILELEGEND - 86 Diamond" → "💎 86 Diamond — Rp 19.000"
  */
 export function formatNominalLabel(brand: string, itemName: string, price: number): string {
-  const cleanName = itemName.toLowerCase().startsWith(brand.toLowerCase())
-    ? itemName.slice(brand.length).trim()
-    : itemName;
+  const cleanName = stripBrandPrefix(brand, itemName);
   return `${getBrandEmoji(brand)} ${cleanName} — ${formatRupiah(price)}`;
 }
 

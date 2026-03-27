@@ -5,7 +5,7 @@ import {
 } from "@grammyjs/conversations";
 import { InputFile } from "grammy";
 import { db } from "../../../db/client.js";
-import { formatNominalLabel, generateQrBuffer } from "../../../utils/formatter.js";
+import { formatNominalLabel, generateQrBuffer, getBrandEmoji } from "../../../utils/formatter.js";
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl } from "../../../services/order.service.js";
@@ -31,12 +31,6 @@ function needsServerId(brand: string): boolean {
   return GAMES_NEED_SERVER_ID.has(brand.toLowerCase());
 }
 
-const PAYMENT_LABELS: Record<PaymentMethod, string> = {
-  QRIS: "💳 QRIS",
-  GOPAY: "💚 GoPay",
-  OVO: "💜 OVO",
-  DANA: "💙 Dana",
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -163,24 +157,34 @@ async function stepSelectNominal(
     return null;
   }
 
+  const list = products.slice(0, 25);
+
+  // Bangun teks list bernomor
+  const lines = list.map((p, i) => {
+    const num = String(i + 1).padStart(2, " ");
+    const label = formatNominalLabel(brand, p.itemName, p.price);
+    return `${num}. ${label}`;
+  });
+  const listText =
+    `${getBrandEmoji(brand)} <b>Pilih nominal ${brand}:</b>\n\n` +
+    `<code>${lines.join("\n")}</code>`;
+
+  // Bangun tombol angka 5 per baris + tombol batal
   const keyboard = new InlineKeyboard();
-  const rows = chunkArray(products.slice(0, 20), 2);
-  for (const row of rows) {
-    for (const product of row) {
-      const label = formatNominalLabel(brand, product.itemName, product.price);
-      keyboard.text(label, `item:${product.itemCode}`);
+  const numRows = chunkArray(list, 5);
+  for (const row of numRows) {
+    for (const [i, p] of row.entries()) {
+      const globalIndex = list.indexOf(p) + 1;
+      keyboard.text(String(globalIndex), `item:${p.itemCode}`);
     }
     keyboard.row();
   }
   keyboard.text("❌ Batal", "item:cancel");
 
-  await ctx.reply(
-    `💎 <b>Pilih nominal ${brand}:</b>`,
-    { reply_markup: keyboard, parse_mode: "HTML" },
-  );
+  await ctx.reply(listText, { reply_markup: keyboard, parse_mode: "HTML" });
 
   const cb = await conversation.waitForCallbackQuery(/^item:.+$/, {
-    otherwise: (c) => c.reply("😊 Tap nominal yang kamu mau ya!"),
+    otherwise: (c) => c.reply("😊 Tap nomor nominal yang kamu mau ya!"),
   });
   await cb.answerCallbackQuery();
 
@@ -299,35 +303,6 @@ async function stepOfferPoints(
   return discount;
 }
 
-// ─── Step 7: Pilih Metode Bayar ───────────────────────────────────────────────
-
-async function stepSelectPayment(
-  conversation: TopUpConversation,
-  ctx: Context,
-  finalAmount: number,
-): Promise<PaymentMethod | null> {
-  const keyboard = new InlineKeyboard();
-  const methods = Object.entries(PAYMENT_LABELS) as [PaymentMethod, string][];
-  for (const [method, label] of methods) {
-    keyboard.text(label, `pay:${method}`).row();
-  }
-  keyboard.text("❌ Batal", "pay:cancel");
-
-  await ctx.reply(
-    `💳 <b>Pilih metode pembayaran</b>\nTotal: <b>${formatRupiah(finalAmount)}</b>`,
-    { reply_markup: keyboard, parse_mode: "HTML" },
-  );
-
-  const cb = await conversation.waitForCallbackQuery(/^pay:.+$/, {
-    otherwise: (c) => c.reply("😊 Pilih metode pembayaran ya!"),
-  });
-  await cb.answerCallbackQuery();
-
-  const method = cb.callbackQuery.data.replace("pay:", "") as PaymentMethod | "cancel";
-  if (method === "cancel") return null;
-
-  return method;
-}
 
 // ─── Main Scene ───────────────────────────────────────────────────────────────
 
@@ -376,14 +351,7 @@ export async function topUpScene(
   const pointDiscount = await stepOfferPoints(conversation, ctx, userId, product.price);
   const finalAmount = Math.max(product.price - pointDiscount, 0);
 
-  // ── Step 7: Pilih metode bayar ──────────────────────────────────────────────
-  const paymentMethod = await stepSelectPayment(conversation, ctx, finalAmount);
-  if (paymentMethod === null) {
-    await ctx.reply("😊 Order dibatalkan. Ketik /topup untuk mulai lagi!");
-    return;
-  }
-
-  // ── Step 8: Buat order + invoice ────────────────────────────────────────────
+  // ── Step 7: Buat order + invoice (QRIS) ─────────────────────────────────────
   await ctx.reply("⏳ Membuat tagihan...");
 
   const order = await conversation.external(() =>
@@ -407,7 +375,7 @@ export async function topUpScene(
         itemName: product.itemName,
         customerName: telegramUser.first_name,
         customerEmail: `tg${telegramUser.id}@yokmabar.app`,
-        paymentMethod,
+        paymentMethod: "QRIS",
       }),
     );
   } catch (err) {
@@ -433,7 +401,7 @@ export async function topUpScene(
     `Berlaku  : 15 menit ⏰\n\n` +
     `Selesaikan pembayaran sebelum waktu habis ya!`;
 
-  if (paymentMethod === "QRIS" && invoice.qrString !== undefined) {
+  if (invoice.qrString !== undefined) {
     const qrBuffer = await conversation.external(() =>
       generateQrBuffer(invoice.qrString!),
     );

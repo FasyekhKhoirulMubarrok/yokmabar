@@ -24,7 +24,7 @@ import {
 } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl } from "../../../services/order.service.js";
-import { createInvoice, type PaymentMethod } from "../../../services/payment.service.js";
+import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
 
@@ -40,12 +40,6 @@ function needsServerId(brand: string): boolean {
   return GAMES_NEED_SERVER_ID.has(brand.toLowerCase());
 }
 
-const PAYMENT_METHODS: { id: string; label: string; method: PaymentMethod }[] = [
-  { id: "pay:QRIS",  label: "💳 QRIS",  method: "QRIS"  },
-  { id: "pay:GOPAY", label: "💚 GoPay", method: "GOPAY" },
-  { id: "pay:OVO",   label: "💜 OVO",   method: "OVO"   },
-  { id: "pay:DANA",  label: "💙 Dana",  method: "DANA"  },
-];
 
 // ─── Slash Command Definition ─────────────────────────────────────────────────
 
@@ -253,23 +247,17 @@ export async function handleTopupModalSubmit(
     });
   }
 
-  // Buttons metode bayar + batal
-  const payButtons = PAYMENT_METHODS.map((pm) =>
-    new ButtonBuilder()
-      .setCustomId(`${pm.id}:${userId}:${product.itemCode}:${gameUserId}:${gameServerId ?? ""}`)
-      .setLabel(pm.label)
-      .setStyle(ButtonStyle.Primary),
-  );
+  const confirmButton = new ButtonBuilder()
+    .setCustomId(`pay-QRIS-${userId}-${product.itemCode}-${gameUserId}-${gameServerId ?? ""}`)
+    .setLabel("💳 Bayar dengan QRIS")
+    .setStyle(ButtonStyle.Primary);
 
   const cancelButton = new ButtonBuilder()
     .setCustomId("topup_cancel")
     .setLabel("❌ Batal")
     .setStyle(ButtonStyle.Danger);
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    ...payButtons,
-    cancelButton,
-  );
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton, cancelButton);
 
   await interaction.editReply({ embeds: [embed], components: [row] });
 }
@@ -288,12 +276,13 @@ export async function handleTopupButton(
     return;
   }
 
-  // Format: "pay:{METHOD}:{userId}:{itemCode}:{gameUserId}:{gameServerId}"
-  const [, methodStr, userId, itemCode, gameUserId, gameServerIdRaw] =
-    interaction.customId.split(":");
-
+  // Format: "pay-QRIS-{userId}-{itemCode}-{gameUserId}-{gameServerId}"
+  const parts = interaction.customId.split("-");
+  const userId = parts[2];
+  const itemCode = parts[3];
+  const gameUserId = parts[4] ?? "";
+  const gameServerIdRaw = parts[5] ?? "";
   const gameServerId = gameServerIdRaw !== "" ? gameServerIdRaw : null;
-  const paymentMethod = methodStr as PaymentMethod;
 
   await interaction.deferUpdate();
 
@@ -332,7 +321,7 @@ export async function handleTopupButton(
       itemName: product.itemName,
       customerName: discordUser.username,
       customerEmail: `dc${discordUser.id}@yokmabar.app`,
-      paymentMethod,
+      paymentMethod: "QRIS",
     });
 
     await Promise.all([
@@ -368,7 +357,7 @@ export async function handleTopupButton(
     .setDescription("Selesaikan pembayaran sebelum waktu habis ya!")
     .setTimestamp();
 
-  if (paymentMethod === "QRIS" && invoice.qrString !== undefined) {
+  if (invoice.qrString !== undefined) {
     const qrBuffer = await generateQrBuffer(invoice.qrString);
     const attachment = new AttachmentBuilder(qrBuffer, { name: "qris.png" });
     tagihanEmbed.setImage("attachment://qris.png");
