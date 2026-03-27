@@ -10,12 +10,21 @@ const rest = new REST({ version: "10" }).setToken(config.DISCORD_BOT_TOKEN);
 async function deploy(): Promise<void> {
   console.info(`[deploy-commands] Mendaftarkan ${commands.length} slash command...`);
 
-  const data = await rest.put(
-    Routes.applicationCommands(config.DISCORD_CLIENT_ID),
-    { body: commands },
-  ) as unknown[];
+  // Jika DISCORD_TEST_GUILD_ID di-set, daftarkan ke guild spesifik (instan).
+  // Kosongkan env var ini untuk deploy global (propagasi ~1 jam).
+  const guildId = process.env.DISCORD_TEST_GUILD_ID;
+  const route =
+    guildId != null && guildId !== ""
+      ? Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, guildId)
+      : Routes.applicationCommands(config.DISCORD_CLIENT_ID);
 
-  console.info(`[deploy-commands] ${data.length} slash command berhasil didaftarkan.`);
+  const data = (await rest.put(route, { body: commands })) as unknown[];
+
+  const scope =
+    guildId != null && guildId !== "" ? `guild ${guildId}` : "global";
+  console.info(
+    `[deploy-commands] ${data.length} slash command berhasil didaftarkan (${scope}).`,
+  );
 }
 
 deploy().catch((err: unknown) => {
