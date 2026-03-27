@@ -4,6 +4,7 @@ import {
   type ConversationFlavor,
 } from "@grammyjs/conversations";
 import { db } from "../../../db/client.js";
+import { formatNominalLabel } from "../../../utils/formatter.js";
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl } from "../../../services/order.service.js";
@@ -20,10 +21,14 @@ export type TopUpConversation = Conversation<BotContext, Context>;
 
 // Game yang butuh Server ID
 const GAMES_NEED_SERVER_ID = new Set([
-  "Mobile Legends",
-  "Genshin Impact",
-  "Honkai: Star Rail",
+  "mobile legends",
+  "genshin impact",
+  "honkai: star rail",
 ]);
+
+function needsServerId(brand: string): boolean {
+  return GAMES_NEED_SERVER_ID.has(brand.toLowerCase());
+}
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   QRIS: "💳 QRIS",
@@ -161,7 +166,7 @@ async function stepSelectNominal(
   const rows = chunkArray(products.slice(0, 20), 2);
   for (const row of rows) {
     for (const product of row) {
-      const label = `${product.itemName} — ${formatRupiah(product.price)}`;
+      const label = formatNominalLabel(brand, product.itemName, product.price);
       keyboard.text(label, `item:${product.itemCode}`);
     }
     keyboard.row();
@@ -191,7 +196,7 @@ async function stepInputUserId(
   ctx: Context,
   brand: string,
 ): Promise<{ gameUserId: string; gameServerId: string | null }> {
-  const needsServer = GAMES_NEED_SERVER_ID.has(brand);
+  const needsServer = needsServerId(brand);
 
   await ctx.reply(
     needsServer

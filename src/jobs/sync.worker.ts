@@ -73,6 +73,10 @@ async function fetchPriceList(): Promise<DigiflazzProduct[]> {
 
 // ─── Filter Helpers ───────────────────────────────────────────────────────────
 
+function isGameProduct(p: DigiflazzProduct): boolean {
+  return p.category === "Games";
+}
+
 function isActiveProduct(p: DigiflazzProduct): boolean {
   return (
     p.buyer_product_status &&
@@ -146,7 +150,8 @@ async function invalidateProductCache(brands?: string[]): Promise<void> {
 async function runFullSync(): Promise<void> {
   console.info("[sync-worker] Full sync dimulai...");
   const all = await fetchPriceList();
-  const count = await upsertProducts(all);
+  const games = all.filter(isGameProduct);
+  const count = await upsertProducts(games);
   await invalidateProductCache();
   console.info(`[sync-worker] Full sync selesai — ${count} produk diproses.`);
 }
@@ -154,7 +159,7 @@ async function runFullSync(): Promise<void> {
 async function runPartialSync(brands: string[]): Promise<void> {
   console.info(`[sync-worker] Partial sync dimulai — brands: ${brands.join(", ")}`);
   const all = await fetchPriceList();
-  const filtered = all.filter((p) => brands.includes(p.brand));
+  const filtered = all.filter((p) => isGameProduct(p) && brands.includes(p.brand));
   const count = await upsertProducts(filtered);
   await invalidateProductCache(brands);
   console.info(`[sync-worker] Partial sync selesai — ${count} produk diproses.`);
@@ -174,7 +179,8 @@ async function runOndemandSync(): Promise<void> {
 
   console.info("[sync-worker] On-demand sync dimulai...");
   const all = await fetchPriceList();
-  const count = await upsertProducts(all);
+  const games = all.filter(isGameProduct);
+  const count = await upsertProducts(games);
   await invalidateProductCache();
   console.info(`[sync-worker] On-demand sync selesai — ${count} produk diproses.`);
 }

@@ -40,6 +40,47 @@ export function generatePaymentRef(): string {
   return `YM-${ts}${rand}`;
 }
 
+// ─── Brand Emoji ──────────────────────────────────────────────────────────────
+
+const BRAND_EMOJI: Record<string, string> = {
+  "mobile legends": "💎",
+  "free fire": "💎",
+  "pubg mobile": "🔫",
+  "genshin impact": "💎",
+  "valorant": "⚔️",
+  "honkai: star rail": "💎",
+  "telkomsel": "📱",
+  "indosat": "📱",
+  "tri": "📱",
+  "axis": "📱",
+  "xl": "📱",
+  "smartfren": "📱",
+  "by.u": "📱",
+  "pln": "⚡",
+  "dana": "💙",
+  "ovo": "💜",
+  "go pay": "💚",
+  "shopee pay": "🧡",
+  "pertamina gas": "⛽",
+  "k-vision dan gol": "📺",
+};
+
+/**
+ * Ambil emoji berdasarkan nama brand.
+ * Default 🎮 jika brand tidak dikenali.
+ */
+export function getBrandEmoji(brand: string): string {
+  return BRAND_EMOJI[brand.toLowerCase()] ?? "🎮";
+}
+
+/**
+ * Format label nominal untuk tampilan di bot.
+ * Contoh: "💎 86 Diamonds — Rp 19.000"
+ */
+export function formatNominalLabel(brand: string, itemName: string, price: number): string {
+  return `${getBrandEmoji(brand)} ${itemName} — ${formatRupiah(price)}`;
+}
+
 // ─── Poin ─────────────────────────────────────────────────────────────────────
 
 /**

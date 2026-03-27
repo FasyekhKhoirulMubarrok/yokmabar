@@ -15,6 +15,7 @@ import {
   type ModalActionRowComponentBuilder,
 } from "discord.js";
 import { db } from "../../../db/client.js";
+import { formatNominalLabel } from "../../../utils/formatter.js";
 import {
   getPopularBrands,
   getProductsByBrand,
@@ -124,7 +125,7 @@ export async function handleTopupAutocomplete(
 
     await interaction.respond(
       filtered.map((p) => ({
-        name: `${p.itemName} — ${formatRupiah(p.price)}`,
+        name: formatNominalLabel(selectedBrand, p.itemName, p.price),
         value: p.itemCode,
       })),
     );

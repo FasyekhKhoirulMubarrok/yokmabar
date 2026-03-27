@@ -26,7 +26,7 @@ export async function getProductsByBrand(brand: string): Promise<Product[]> {
 
   const products = await db.product.findMany({
     where: { isActive: true, brand },
-    orderBy: [{ isPopular: "desc" }, { displayOrder: "asc" }, { itemName: "asc" }],
+    orderBy: [{ price: "asc" }],
   });
 
   await redis.set(key, JSON.stringify(products), "EX", CACHE_TTL);
