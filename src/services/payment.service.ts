@@ -147,7 +147,11 @@ export async function createInvoice(
     paymentUrl?: string;
     duitkuOrderId?: string;
     message?: string;
+    qrString?: string;
+    qrisUrl?: string;
   };
+
+  console.info("[payment] Duitku response:", JSON.stringify(data));
 
   if (data.statusCode !== "00" || data.paymentUrl === undefined) {
     throw new PaymentError(
