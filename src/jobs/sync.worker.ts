@@ -91,6 +91,12 @@ function isPopularBrand(brand: string): boolean {
   );
 }
 
+// ─── Markup ───────────────────────────────────────────────────────────────────
+
+function applyMarkup(price: number): number {
+  return Math.ceil(price * (1 + config.PRICE_MARKUP_RATE));
+}
+
 // ─── Upsert to DB ─────────────────────────────────────────────────────────────
 
 async function upsertProducts(products: DigiflazzProduct[]): Promise<number> {
@@ -111,14 +117,14 @@ async function upsertProducts(products: DigiflazzProduct[]): Promise<number> {
             category: p.category,
             itemCode: p.buyer_sku_code,
             itemName: p.product_name,
-            price: p.price,
+            price: applyMarkup(p.price),
             isActive: isActiveProduct(p),
             isPopular: isPopularBrand(p.brand),
             lastSyncedAt: now,
           },
           update: {
             itemName: p.product_name,
-            price: p.price,
+            price: applyMarkup(p.price),
             isActive: isActiveProduct(p),
             isPopular: isPopularBrand(p.brand),
             lastSyncedAt: now,

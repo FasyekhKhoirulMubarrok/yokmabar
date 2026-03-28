@@ -39,6 +39,9 @@ const EnvSchema = z.object({
 
   // ── Sistem Referral Discord ───────────────────────────────────────────────
   REFERRAL_BONUS_POINTS: z.coerce.number().default(50),
+
+  // ── Markup Harga ──────────────────────────────────────────────────────────
+  PRICE_MARKUP_RATE: z.coerce.number().default(0.03), // 3% default
 });
 
 export type Env = z.infer<typeof EnvSchema>;
