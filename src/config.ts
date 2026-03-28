@@ -21,10 +21,9 @@ const EnvSchema = z.object({
   FONNTE_API_KEY: z.string().min(1),
   WHATSAPP_ADMIN_NUMBER: z.string().min(1),
 
-  // ── Payment — Duitku ──────────────────────────────────────────────────────
-  DUITKU_MERCHANT_CODE: z.string().min(1),
-  DUITKU_API_KEY: z.string().min(1),
-  DUITKU_CALLBACK_URL: z.string().url(),
+  // ── Payment — Midtrans ────────────────────────────────────────────────────
+  MIDTRANS_SERVER_KEY: z.string().min(1),
+  MIDTRANS_WEBHOOK_URL: z.string().url(),
 
   // ── Supplier — Digiflazz ─────────────────────────────────────────────────
   DIGIFLAZZ_USERNAME: z.string().min(1),

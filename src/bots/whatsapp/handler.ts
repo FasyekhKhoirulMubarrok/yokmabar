@@ -7,7 +7,7 @@ import {
 } from "../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../services/point.service.js";
 import { createOrder, setPaymentUrl } from "../../services/order.service.js";
-import { createInvoice, type PaymentMethod } from "../../services/payment.service.js";
+import { createInvoice } from "../../services/payment.service.js";
 import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { config } from "../../config.js";
@@ -427,10 +427,10 @@ async function sendPaymentMenu(phone: string, state: WaState): Promise<void> {
   const finalAmount = Math.max(product.price - discount, 0);
 
   const text =
-    `💳 *Pilih metode pembayaran*\n` +
+    `💳 *Pembayaran QRIS*\n` +
     `Total: *${formatRupiah(finalAmount)}*\n\n` +
-    `1. 💳 QRIS\n2. 💚 GoPay\n3. 💜 OVO\n4. 💙 Dana\n0. ❌ Batal` +
-    footer("Balas dengan angka metode bayar");
+    `1. ✅ Lanjut bayar\n0. ❌ Batal` +
+    footer("Balas 1 untuk lanjut atau 0 untuk batal");
 
   await sendWhatsApp(phone, text);
   await setState(phone, {
@@ -447,19 +447,13 @@ async function handleSelectPayment(phone: string, text: string, state: WaState):
     return;
   }
 
-  const methodMap: Record<string, PaymentMethod> = {
-    "1": "QRIS",
-    "2": "GOPAY",
-    "3": "OVO",
-    "4": "DANA",
-  };
-
-  const paymentMethod = methodMap[text];
-  if (paymentMethod === undefined) {
-    await sendWhatsApp(phone, `😊 Pilih angka 1–4 atau 0 untuk batal ya!` + footer("Balas dengan angka metode bayar"));
+  if (text !== "1") {
+    await sendWhatsApp(phone, `😊 Balas 1 untuk lanjut atau 0 untuk batal ya!` + footer("Balas dengan angka"));
     await setState(phone, state);
     return;
   }
+
+  const paymentMethod = "QRIS" as const;
 
   const products = state.products ?? [];
   const product = products.find((p) => p.itemCode === state.selectedItemCode);

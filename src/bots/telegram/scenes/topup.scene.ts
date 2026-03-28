@@ -9,7 +9,7 @@ import { formatNominalLabel, generateQrBuffer, getBrandEmoji, stripBrandPrefix }
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
-import { createInvoice, type PaymentMethod } from "../../../services/payment.service.js";
+import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
 
@@ -448,11 +448,8 @@ export async function topUpScene(
     `Berlaku  : 15 menit ⏰\n\n` +
     `Selesaikan pembayaran sebelum waktu habis ya!`;
 
-  if (invoice.qrString !== undefined) {
-    const qrBuffer = await conversation.external(() =>
-      generateQrBuffer(invoice.qrString!),
-    );
-    await ctx.replyWithPhoto(new InputFile(qrBuffer, "qris.png"), {
+  if (invoice.qrBuffer !== undefined) {
+    await ctx.replyWithPhoto(new InputFile(invoice.qrBuffer, "qris.png"), {
       caption,
       parse_mode: "HTML",
     });

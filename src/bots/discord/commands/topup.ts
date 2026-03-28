@@ -379,9 +379,8 @@ export async function handleTopupButton(
     .setDescription("Selesaikan pembayaran sebelum waktu habis ya!")
     .setTimestamp();
 
-  if (invoice.qrString !== undefined) {
-    const qrBuffer = await generateQrBuffer(invoice.qrString);
-    const attachment = new AttachmentBuilder(qrBuffer, { name: "qris.png" });
+  if (invoice.qrBuffer !== undefined) {
+    const attachment = new AttachmentBuilder(invoice.qrBuffer, { name: "qris.png" });
     tagihanEmbed.setImage("attachment://qris.png");
     await interaction.editReply({ embeds: [tagihanEmbed], files: [attachment], components: [] });
   } else {

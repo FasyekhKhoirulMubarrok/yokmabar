@@ -19,22 +19,10 @@ export class PaymentError extends Error {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DUITKU_BASE_URL =
+const MIDTRANS_API_BASE =
   config.NODE_ENV === "production"
-    ? "https://passport.duitku.com/webapi/api/merchant/v2/inquiry"
-    : "https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry";
-
-const EXPIRY_MINUTES = 15;
-
-// Payment method codes
-export const PAYMENT_METHODS = {
-  QRIS: "SP",
-  GOPAY: "GP",
-  OVO: "OV",
-  DANA: "DA",
-} as const;
-
-export type PaymentMethod = keyof typeof PAYMENT_METHODS;
+    ? "https://api.midtrans.com"
+    : "https://api.sandbox.midtrans.com";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,55 +32,36 @@ export interface CreateInvoiceInput {
   itemName: string;
   customerName: string;
   customerEmail: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: "QRIS";
 }
 
 export interface CreateInvoiceResult {
   paymentUrl: string;
-  duitkuOrderId: string;
-  qrString?: string;
+  gatewayTransactionId: string;
+  qrBuffer?: Buffer;
 }
 
-export interface DuitkuWebhookPayload {
-  merchantCode: string;
-  amount: string;
-  merchantOrderId: string;
-  productDetail?: string;
-  additionalParam?: string;
-  paymentCode?: string;
-  resultCode: string;
-  merchantUserId?: string;
-  reference?: string;
-  signature: string;
-  publisherOrderId?: string;
-  settlementDate?: string;
-  issuerCode?: string;
+export interface MidtransWebhookPayload {
+  transaction_time: string;
+  transaction_status: string;
+  transaction_id: string;
+  status_message: string;
+  status_code: string;
+  signature_key: string;
+  order_id: string;
+  merchant_id: string;
+  gross_amount: string;
+  currency: string;
+  payment_type: string;
+  fraud_status?: string;
+  settlement_time?: string;
 }
 
-// ─── Signature ────────────────────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
-/**
- * Signature untuk create invoice:
- * MD5(merchantCode + merchantOrderId + paymentAmount + apiKey)
- */
-function createRequestSignature(
-  merchantOrderId: string,
-  paymentAmount: number,
-): string {
-  const raw = `${config.DUITKU_MERCHANT_CODE}${merchantOrderId}${paymentAmount}${config.DUITKU_API_KEY}`;
-  return createHash("md5").update(raw).digest("hex");
-}
-
-/**
- * Signature untuk validasi webhook callback:
- * MD5(merchantCode + amount + merchantOrderId + apiKey)
- */
-function createCallbackSignature(
-  amount: string,
-  merchantOrderId: string,
-): string {
-  const raw = `${config.DUITKU_MERCHANT_CODE}${amount}${merchantOrderId}${config.DUITKU_API_KEY}`;
-  return createHash("md5").update(raw).digest("hex");
+function authHeader(): string {
+  const encoded = Buffer.from(`${config.MIDTRANS_SERVER_KEY}:`).toString("base64");
+  return `Basic ${encoded}`;
 }
 
 // ─── Create Invoice ───────────────────────────────────────────────────────────
@@ -104,96 +73,105 @@ export async function createInvoice(
     throw new PaymentError("Amount harus lebih dari 0", "INVALID_AMOUNT");
   }
 
-  const signature = createRequestSignature(
-    input.merchantOrderId,
-    input.amount,
-  );
-
   const payload = {
-    merchantCode: config.DUITKU_MERCHANT_CODE,
-    paymentAmount: input.amount,
-    paymentMethod: PAYMENT_METHODS[input.paymentMethod],
-    merchantOrderId: input.merchantOrderId,
-    productDetails: input.itemName,
-    customerVaName: input.customerName,
-    email: input.customerEmail,
-    callbackUrl: config.DUITKU_CALLBACK_URL,
-    returnUrl: `${config.APP_URL}/order/${input.merchantOrderId}`,
-    signature,
-    expiryPeriod: EXPIRY_MINUTES,
-    itemDetails: [
+    payment_type: "qris",
+    transaction_details: {
+      order_id: input.merchantOrderId,
+      gross_amount: input.amount,
+    },
+    item_details: [
       {
-        name: input.itemName,
+        id: input.merchantOrderId,
         price: input.amount,
         quantity: 1,
+        name: input.itemName.slice(0, 50), // Midtrans max 50 chars
       },
     ],
+    customer_details: {
+      first_name: input.customerName.slice(0, 50),
+      email: input.customerEmail,
+    },
+    qris: { acquirer: "gopay" },
   };
 
-  const response = await fetch(DUITKU_BASE_URL, {
+  const response = await fetch(`${MIDTRANS_API_BASE}/v2/charge`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: authHeader(),
+    },
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    throw new PaymentError(
-      `Duitku API error: HTTP ${response.status}`,
-      "CREATE_FAILED",
-    );
-  }
-
   const data = (await response.json()) as {
-    statusCode?: string;
-    paymentUrl?: string;
-    duitkuOrderId?: string;
-    message?: string;
-    qrString?: string;
-    qrisUrl?: string;
+    status_code?: string;
+    status_message?: string;
+    transaction_id?: string;
+    actions?: Array<{ name: string; method: string; url: string }>;
   };
 
-  if (data.statusCode !== "00" || data.paymentUrl === undefined) {
+  if (!response.ok || data.status_code !== "201") {
     throw new PaymentError(
-      `Gagal buat invoice: ${data.message ?? "unknown error"}`,
+      `Midtrans error: ${data.status_message ?? `HTTP ${response.status}`}`,
       "CREATE_FAILED",
     );
   }
 
+  const qrAction = data.actions?.find((a) => a.name === "generate-qr-code");
+
+  if (qrAction === undefined || data.transaction_id === undefined) {
+    throw new PaymentError("QR code tidak tersedia dari Midtrans", "CREATE_FAILED");
+  }
+
+  // Fetch QR image sebagai buffer
+  const qrResponse = await fetch(qrAction.url, {
+    headers: { Authorization: authHeader() },
+  });
+
+  if (!qrResponse.ok) {
+    throw new PaymentError("Gagal fetch QR image dari Midtrans", "CREATE_FAILED");
+  }
+
+  const qrBuffer = Buffer.from(await qrResponse.arrayBuffer());
+
   return {
-    paymentUrl: data.paymentUrl,
-    duitkuOrderId: data.duitkuOrderId ?? "",
-    ...(data.qrString !== undefined && { qrString: data.qrString }),
+    paymentUrl: qrAction.url,
+    gatewayTransactionId: data.transaction_id,
+    qrBuffer,
   };
 }
 
 // ─── Webhook Validation ───────────────────────────────────────────────────────
 
 /**
- * Validasi signature webhook Duitku.
- * Lempar PaymentError jika tidak valid.
- * Return true jika pembayaran sukses (resultCode === "00").
+ * Validasi signature webhook Midtrans.
+ * Formula: SHA512(order_id + status_code + gross_amount + server_key)
+ * Return true jika pembayaran sukses.
  */
-export function validateWebhook(payload: DuitkuWebhookPayload): boolean {
-  const { merchantCode, amount, merchantOrderId, signature, resultCode } =
-    payload;
+export function validateWebhook(payload: MidtransWebhookPayload): boolean {
+  const { order_id, status_code, gross_amount, signature_key } = payload;
 
   if (
-    merchantCode === undefined ||
-    amount === undefined ||
-    merchantOrderId === undefined ||
-    signature === undefined
+    order_id === undefined ||
+    status_code === undefined ||
+    gross_amount === undefined ||
+    signature_key === undefined
   ) {
     throw new PaymentError("Parameter webhook tidak lengkap", "BAD_PARAMETER");
   }
 
-  if (merchantCode !== config.DUITKU_MERCHANT_CODE) {
-    throw new PaymentError("Merchant code tidak cocok", "BAD_SIGNATURE");
-  }
+  const raw = `${order_id}${status_code}${gross_amount}${config.MIDTRANS_SERVER_KEY}`;
+  const expected = createHash("sha512").update(raw).digest("hex");
 
-  const expected = createCallbackSignature(amount, merchantOrderId);
-  if (expected !== signature) {
+  if (expected !== signature_key) {
     throw new PaymentError("Signature webhook tidak valid", "BAD_SIGNATURE");
   }
 
-  return resultCode === "00";
+  const isSuccess =
+    status_code === "200" &&
+    ["settlement", "capture"].includes(payload.transaction_status) &&
+    (payload.fraud_status === undefined || payload.fraud_status === "accept");
+
+  return isSuccess;
 }

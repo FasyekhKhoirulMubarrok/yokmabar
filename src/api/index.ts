@@ -3,7 +3,7 @@ import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { redis } from "../db/redis.js";
 import health from "./health.js";
-import webhookDuitku from "./webhook.duitku.js";
+import webhookMidtrans from "./webhook.midtrans.js";
 import webhookDigiflazz from "./webhook.digiflazz.js";
 import oauthDiscord from "./oauth.discord.js";
 import { triggerOndemandSync } from "../jobs/sync.worker.js";
@@ -61,7 +61,7 @@ app.use("/health", async (c, next) => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.route("/health", health);
-app.route("/webhook/duitku", webhookDuitku);
+app.route("/webhook/midtrans", webhookMidtrans);
 app.route("/webhook/digiflazz", webhookDigiflazz);
 app.route("/oauth/discord", oauthDiscord);
 
