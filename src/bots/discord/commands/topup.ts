@@ -27,7 +27,7 @@ import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
-import { checkGameId } from "../../../services/supplier.service.js";
+import { checkGameId, getInquirySku } from "../../../services/supplier.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -249,8 +249,12 @@ export async function handleTopupModalSubmit(
     .setFooter({ text: "YokMabar · Top up cepat, langsung gas!" })
     .setTimestamp();
 
+  const inquirySupported = getInquirySku(brand) !== null;
   if (inquiryResult !== null) {
     embed.addFields({ name: "✅ Username Terverifikasi", value: inquiryResult.username, inline: false });
+  } else if (inquirySupported) {
+    embed.addFields({ name: "⚠️ ID Tidak Ditemukan", value: "Cek kembali ID kamu. Kamu masih bisa lanjut jika yakin sudah benar.", inline: false });
+    embed.setColor(0xffa500);
   }
 
   // Tambah info poin

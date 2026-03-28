@@ -25,7 +25,11 @@ export async function getProductsByBrand(brand: string): Promise<Product[]> {
   }
 
   const products = await db.product.findMany({
-    where: { isActive: true, brand },
+    where: {
+      isActive: true,
+      brand,
+      NOT: { itemName: { contains: "Cek Username", mode: "insensitive" } },
+    },
     orderBy: [{ price: "asc" }],
   });
 
@@ -69,6 +73,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
   return db.product.findMany({
     where: {
       isActive: true,
+      NOT: { itemName: { contains: "Cek Username", mode: "insensitive" } },
       OR: [
         { itemName: { contains: keyword, mode: "insensitive" } },
         { brand: { contains: keyword, mode: "insensitive" } },

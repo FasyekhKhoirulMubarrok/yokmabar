@@ -12,7 +12,7 @@ import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { config } from "../../config.js";
 import { stripBrandPrefix } from "../../utils/formatter.js";
-import { checkGameId } from "../../services/supplier.service.js";
+import { checkGameId, getInquirySku } from "../../services/supplier.service.js";
 import { type Product } from "@prisma/client";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -344,6 +344,8 @@ async function handleInputUserId(phone: string, text: string, state: WaState): P
   const inquiryResult = await checkGameId(brand, text, null);
   if (inquiryResult !== null) {
     await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
+  } else if (getInquirySku(brand) !== null) {
+    await sendWhatsApp(phone, `⚠️ ID tidak ditemukan. Cek kembali ID kamu ya.\nKamu masih bisa lanjut jika yakin sudah benar.`);
   }
 
   await showConfirmation(phone, { ...state, gameUserId: text, gameServerId: null, inquiryUsername: inquiryResult?.username ?? null });
@@ -357,6 +359,8 @@ async function handleInputServerId(phone: string, text: string, state: WaState):
   const inquiryResult = await checkGameId(brand, gameUserId, text);
   if (inquiryResult !== null) {
     await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
+  } else if (getInquirySku(brand) !== null) {
+    await sendWhatsApp(phone, `⚠️ ID tidak ditemukan. Cek kembali ID kamu ya.\nKamu masih bisa lanjut jika yakin sudah benar.`);
   }
 
   await showConfirmation(phone, { ...state, gameServerId: text, inquiryUsername: inquiryResult?.username ?? null });

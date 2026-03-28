@@ -9,7 +9,7 @@ import { formatNominalLabel, generateQrBuffer, getBrandEmoji, stripBrandPrefix }
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
-import { checkGameId } from "../../../services/supplier.service.js";
+import { checkGameId, getInquirySku } from "../../../services/supplier.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
@@ -388,6 +388,11 @@ export async function topUpScene(
   if (inquiryResult !== null) {
     await ctx.reply(
       `✅ <b>ID ditemukan!</b> Username: <b>${inquiryResult.username}</b>`,
+      { parse_mode: "HTML" },
+    );
+  } else if (getInquirySku(brand!) !== null) {
+    await ctx.reply(
+      `⚠️ <b>ID tidak ditemukan.</b> Cek kembali ID kamu ya.\nKamu masih bisa lanjut jika yakin sudah benar.`,
       { parse_mode: "HTML" },
     );
   }
