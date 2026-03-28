@@ -206,4 +206,68 @@ export function parseWebhookStatus(
   }
 }
 
+// ─── Game ID Inquiry ──────────────────────────────────────────────────────────
+
+// Brand → inquiry SKU dari Digiflazz
+const INQUIRY_SKU: Record<string, string> = {
+  "free fire": "idff",
+  "mobile legends": "idml",
+};
+
+export interface InquiryResult {
+  username: string;
+}
+
+/**
+ * Ambil inquiry SKU untuk brand tertentu.
+ * Return null jika brand tidak support cek ID.
+ */
+export function getInquirySku(brand: string): string | null {
+  return INQUIRY_SKU[brand.toLowerCase()] ?? null;
+}
+
+/**
+ * Cek ID game ke Digiflazz sebelum transaksi.
+ * Return username in-game jika valid, null jika tidak support atau gagal.
+ * Tidak pernah throw — gagal = lanjut tanpa cek.
+ */
+export async function checkGameId(
+  brand: string,
+  gameUserId: string,
+  gameServerId: string | null,
+): Promise<InquiryResult | null> {
+  const skuCode = getInquirySku(brand);
+  if (skuCode === null) return null;
+
+  // Mobile Legends: format userId.serverId
+  const customerNo =
+    gameServerId !== null ? `${gameUserId}.${gameServerId}` : gameUserId;
+
+  const refId = `inq-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const sign = createTransactionSign(refId);
+
+  try {
+    const response = await digiflazzPost<{ data: DigiflazzTransactionData }>(
+      "/transaction",
+      {
+        commands: "inquiry",
+        username: config.DIGIFLAZZ_USERNAME,
+        buyer_sku_code: skuCode,
+        customer_no: customerNo,
+        ref_id: refId,
+        sign,
+        testing: config.NODE_ENV !== "production",
+      },
+    );
+
+    const data = response.data;
+    if (data?.customer_name !== undefined && data.status === "Sukses") {
+      return { username: data.customer_name };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // checkBalance dipindah ke balance.service.ts

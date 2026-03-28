@@ -27,6 +27,7 @@ import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
+import { checkGameId } from "../../../services/supplier.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -136,11 +137,17 @@ export function buildTopupModal(brand: string, itemCode: string): ModalBuilder {
     .setCustomId(`topup_modal|${brand}|${itemCode}`)
     .setTitle(`Top Up ${brand}`);
 
+  const isValorant = brand.toLowerCase() === "valorant";
+  const userIdPlaceholder = isValorant
+    ? "username#tag (contoh: NamaKamu#1234)"
+    : "Contoh: 123456789";
+  const userIdLabel = isValorant ? "Username Valorant (username#tag)" : "User ID kamu";
+
   const userIdInput = new TextInputBuilder()
     .setCustomId("gameUserId")
-    .setLabel("User ID kamu")
+    .setLabel(userIdLabel)
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder("Contoh: 123456789")
+    .setPlaceholder(userIdPlaceholder)
     .setRequired(true)
     .setMaxLength(50);
 
@@ -219,7 +226,11 @@ export async function handleTopupModalSubmit(
 
   const discordUser = interaction.user;
   const userId = await getOrCreateUser(discordUser.id, discordUser.username);
-  const summary = await getPointSummary(userId);
+
+  const [inquiryResult, pointSummary] = await Promise.all([
+    checkGameId(brand, gameUserId, gameServerId),
+    getPointSummary(userId),
+  ]);
 
   // Bangun embed konfirmasi
   const idDisplay = gameServerId
@@ -238,26 +249,30 @@ export async function handleTopupModalSubmit(
     .setFooter({ text: "YokMabar · Top up cepat, langsung gas!" })
     .setTimestamp();
 
+  if (inquiryResult !== null) {
+    embed.addFields({ name: "✅ Username Terverifikasi", value: inquiryResult.username, inline: false });
+  }
+
   // Tambah info poin
-  if (summary.canRedeem) {
-    const isFree = summary.maxDiscount >= product.price;
+  if (pointSummary.canRedeem) {
+    const isFree = pointSummary.maxDiscount >= product.price;
     embed.addFields({
       name: isFree ? "🎉 GRATIS dengan Poin!" : "🎁 Poin Tersedia",
       value: isFree
-        ? `${summary.activePoints} poin cukup untuk item ini — tap tombol di bawah!`
-        : `${summary.activePoints} poin → hemat ${formatRupiah(summary.maxDiscount)} (total: ${formatRupiah(product.price - summary.maxDiscount)})`,
+        ? `${pointSummary.activePoints} poin cukup untuk item ini — tap tombol di bawah!`
+        : `${pointSummary.activePoints} poin → hemat ${formatRupiah(pointSummary.maxDiscount)} (total: ${formatRupiah(product.price - pointSummary.maxDiscount)})`,
       inline: false,
     });
   }
 
-  const confirmLabel = summary.canRedeem && summary.maxDiscount >= product.price
+  const confirmLabel = pointSummary.canRedeem && pointSummary.maxDiscount >= product.price
     ? "🎉 Gratis pakai poin!"
     : "💳 Bayar dengan QRIS";
 
   const confirmButton = new ButtonBuilder()
     .setCustomId(`pay|QRIS|${userId}|${product.itemCode}|${gameUserId}|${gameServerId ?? ""}`)
     .setLabel(confirmLabel)
-    .setStyle(summary.canRedeem && summary.maxDiscount >= product.price ? ButtonStyle.Success : ButtonStyle.Primary);
+    .setStyle(pointSummary.canRedeem && pointSummary.maxDiscount >= product.price ? ButtonStyle.Success : ButtonStyle.Primary);
 
   const cancelButton = new ButtonBuilder()
     .setCustomId("topup_cancel")

@@ -12,6 +12,7 @@ import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { config } from "../../config.js";
 import { stripBrandPrefix } from "../../utils/formatter.js";
+import { checkGameId } from "../../services/supplier.service.js";
 import { type Product } from "@prisma/client";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ interface WaState {
   selectedItemCode?: string;
   gameUserId?: string;
   gameServerId?: string | null;
+  inquiryUsername?: string | null;
   userId?: string;
   pointDiscount?: number;
 }
@@ -309,11 +311,13 @@ async function handleSelectNominal(phone: string, text: string, state: WaState):
 
   const product = products[choice - 1]!;
   const needsServer = GAMES_NEED_SERVER_ID.has(product.brand);
+  const isValorant = product.brand.toLowerCase() === "valorant";
 
-  await sendWhatsApp(
-    phone,
-    `🆔 Masukkan *User ID* ${product.brand} kamu:` + footer("Contoh: 123456789"),
-  );
+  const userIdPrompt = isValorant
+    ? `🆔 Masukkan *Username Valorant* kamu:` + footer("Format: username#tag (contoh: NamaKamu#1234)")
+    : `🆔 Masukkan *User ID* ${product.brand} kamu:` + footer("Contoh: 123456789");
+
+  await sendWhatsApp(phone, userIdPrompt);
 
   await setState(phone, {
     step: "input_userid",
@@ -336,11 +340,26 @@ async function handleInputUserId(phone: string, text: string, state: WaState): P
     return;
   }
 
-  await showConfirmation(phone, { ...state, gameUserId: text, gameServerId: null });
+  // Cek ID game untuk brand yang support inquiry
+  const inquiryResult = await checkGameId(brand, text, null);
+  if (inquiryResult !== null) {
+    await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
+  }
+
+  await showConfirmation(phone, { ...state, gameUserId: text, gameServerId: null, inquiryUsername: inquiryResult?.username ?? null });
 }
 
 async function handleInputServerId(phone: string, text: string, state: WaState): Promise<void> {
-  await showConfirmation(phone, { ...state, gameServerId: text });
+  const brand = state.selectedBrand ?? "";
+  const gameUserId = state.gameUserId ?? "";
+
+  // Cek ID game untuk brand yang support inquiry (ML: userId.serverId)
+  const inquiryResult = await checkGameId(brand, gameUserId, text);
+  if (inquiryResult !== null) {
+    await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
+  }
+
+  await showConfirmation(phone, { ...state, gameServerId: text, inquiryUsername: inquiryResult?.username ?? null });
 }
 
 async function showConfirmation(phone: string, state: WaState): Promise<void> {
@@ -355,12 +374,16 @@ async function showConfirmation(phone: string, state: WaState): Promise<void> {
     ? `Game ID  : ${state.gameUserId} (Server: ${state.gameServerId})`
     : `Game ID  : ${state.gameUserId}`;
 
+  const verifiedLine = state.inquiryUsername != null
+    ? `\n✅ Username : ${state.inquiryUsername}`
+    : "";
+
   const text =
     `📋 *Konfirmasi Order*\n\n` +
     `Game     : ${product.brand}\n` +
     `Item     : ${stripBrandPrefix(product.brand, product.itemName)}\n` +
     `Harga    : ${formatRupiah(product.price)}\n` +
-    `${idLine}\n\n` +
+    `${idLine}${verifiedLine}\n\n` +
     `1. ✅ Konfirmasi\n2. ❌ Batal` +
     footer("Balas 1 untuk konfirmasi atau 2 untuk batal");
 

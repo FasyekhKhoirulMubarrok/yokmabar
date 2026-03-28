@@ -9,6 +9,7 @@ import { formatNominalLabel, generateQrBuffer, getBrandEmoji, stripBrandPrefix }
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
+import { checkGameId } from "../../../services/supplier.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
@@ -203,12 +204,17 @@ async function stepInputUserId(
 ): Promise<{ gameUserId: string; gameServerId: string | null }> {
   const needsServer = needsServerId(brand);
 
-  await ctx.reply(
-    needsServer
-      ? `🆔 Masukkan <b>User ID</b> ${brand} kamu:\n<i>Contoh: 123456789</i>`
-      : `🆔 Masukkan <b>ID akun</b> ${brand} kamu:`,
-    { parse_mode: "HTML" },
-  );
+  const isValorant = brand.toLowerCase() === "valorant";
+  let idPrompt: string;
+  if (isValorant) {
+    idPrompt = `🆔 Masukkan <b>Username Valorant</b> kamu:\n<i>Format: username#tag (contoh: NamaKamu#1234)</i>`;
+  } else if (needsServer) {
+    idPrompt = `🆔 Masukkan <b>User ID</b> ${brand} kamu:\n<i>Contoh: 123456789</i>`;
+  } else {
+    idPrompt = `🆔 Masukkan <b>ID akun</b> ${brand} kamu:`;
+  }
+
+  await ctx.reply(idPrompt, { parse_mode: "HTML" });
 
   const idCtx = await conversation.waitFor("message:text", {
     otherwise: (c) => c.reply("😊 Kirim User ID kamu ya (text saja)!"),
@@ -240,17 +246,22 @@ async function stepConfirm(
   product: Product,
   gameUserId: string,
   gameServerId: string | null,
+  inquiryUsername?: string | null,
 ): Promise<boolean> {
   const idLine = gameServerId
     ? `Game ID  : ${gameUserId} (Server: ${gameServerId})`
     : `Game ID  : ${gameUserId}`;
+
+  const verifiedLine = inquiryUsername !== undefined && inquiryUsername !== null
+    ? `\n✅ Username : ${inquiryUsername}`
+    : "";
 
   const text =
     `📋 <b>Konfirmasi Order</b>\n\n` +
     `Game     : ${product.brand}\n` +
     `Item     : ${stripBrandPrefix(product.brand, product.itemName)}\n` +
     `Harga    : ${formatRupiah(product.price)}\n` +
-    `${idLine}\n\n` +
+    `${idLine}${verifiedLine}\n\n` +
     `Pastikan ID sudah benar ya!`;
 
   const keyboard = new InlineKeyboard()
@@ -369,8 +380,23 @@ export async function topUpScene(
   // ── Step 4: Input User ID (+ Server ID jika perlu) ─────────────────────────
   const { gameUserId, gameServerId } = await stepInputUserId(conversation, ctx, brand);
 
+  // ── Cek ID game (Free Fire & Mobile Legends) ────────────────────────────────
+  const inquiryResult = await conversation.external(() =>
+    checkGameId(brand!, gameUserId, gameServerId),
+  );
+
+  if (inquiryResult !== null) {
+    await ctx.reply(
+      `✅ <b>ID ditemukan!</b> Username: <b>${inquiryResult.username}</b>`,
+      { parse_mode: "HTML" },
+    );
+  }
+
   // ── Step 5: Konfirmasi ──────────────────────────────────────────────────────
-  const confirmed = await stepConfirm(conversation, ctx, product, gameUserId, gameServerId);
+  const confirmed = await stepConfirm(
+    conversation, ctx, product, gameUserId, gameServerId,
+    inquiryResult?.username,
+  );
   if (!confirmed) {
     await ctx.reply("😊 Order dibatalkan. Ketik /topup untuk mulai lagi!");
     return;
