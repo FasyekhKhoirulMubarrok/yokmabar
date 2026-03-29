@@ -3,8 +3,9 @@ import { config } from "../../config.js";
 import { topupCommand } from "./commands/topup.js";
 import { referralCommand } from "./commands/referral.js";
 import { helpCommand } from "./commands/help.js";
+import { feedbackCommand } from "./commands/feedback.js";
 
-const commands = [topupCommand.toJSON(), referralCommand.toJSON(), helpCommand.toJSON()];
+const commands = [topupCommand.toJSON(), referralCommand.toJSON(), helpCommand.toJSON(), feedbackCommand.toJSON()];
 
 const rest = new REST({ version: "10" }).setToken(config.DISCORD_BOT_TOKEN);
 

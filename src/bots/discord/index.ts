@@ -8,6 +8,12 @@ import {
 } from "./commands/topup.js";
 import { handleReferralCommand } from "./commands/referral.js";
 import { handleHelpCommand } from "./commands/help.js";
+import {
+  handleFeedbackCommand,
+  handleFeedbackModalSubmit,
+  handleAdminFeedbackReplyButton,
+  handleAdminFeedbackReplyModalSubmit,
+} from "./commands/feedback.js";
 import { recordServerReferral } from "../../services/referral.service.js";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
@@ -67,6 +73,8 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleReferralCommand(interaction);
       } else if (interaction.commandName === "help") {
         await handleHelpCommand(interaction);
+      } else if (interaction.commandName === "feedback") {
+        await handleFeedbackCommand(interaction);
       }
       return;
     }
@@ -75,6 +83,10 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith("topup_modal|")) {
         await handleTopupModalSubmit(interaction);
+      } else if (interaction.customId === "feedback_modal") {
+        await handleFeedbackModalSubmit(interaction);
+      } else if (interaction.customId.startsWith("fb_admin_reply_modal|")) {
+        await handleAdminFeedbackReplyModalSubmit(interaction);
       }
       return;
     }
@@ -86,6 +98,8 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         interaction.customId === "topup_cancel"
       ) {
         await handleTopupButton(interaction);
+      } else if (interaction.customId.startsWith("fb_admin_reply|")) {
+        await handleAdminFeedbackReplyButton(interaction);
       }
       return;
     }

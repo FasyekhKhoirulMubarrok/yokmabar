@@ -267,6 +267,95 @@ export async function notifyAdminLowBalance(balance: number): Promise<void> {
   ]);
 }
 
+// ─── Feedback Notifications ───────────────────────────────────────────────────
+
+/**
+ * Notif semua admin platform saat ada feedback masuk dari user.
+ * Kirim ke Telegram admin + Discord admin channel + WhatsApp admin.
+ */
+export async function notifyAdminFeedback(
+  ticketId: string,
+  platform: Platform,
+  username: string | null,
+  message: string,
+): Promise<void> {
+  const waktu = formatDateTime(new Date());
+  const userLabel = username !== null ? `@${username}` : `[${platform}]`;
+
+  const telegramText =
+    `📩 <b>Feedback Masuk</b>\n` +
+    `Tiket    : <b>#${ticketId}</b>\n` +
+    `Platform : ${platform}\n` +
+    `User     : ${userLabel}\n` +
+    `Pesan    : ${message}\n` +
+    `Waktu    : ${waktu}\n\n` +
+    `Balas dengan klik tombol di bawah atau ketik:\n` +
+    `<code>/reply ${ticketId} [pesan balasan]</code>`;
+
+  const discordEmbed = {
+    color: 0x00b4d8,
+    title: "📩 Feedback Masuk",
+    fields: [
+      { name: "Tiket",    value: `#${ticketId}`,  inline: true },
+      { name: "Platform", value: platform,         inline: true },
+      { name: "User",     value: userLabel,        inline: true },
+      { name: "Pesan",    value: message,          inline: false },
+    ],
+    timestamp: new Date().toISOString(),
+    footer: { text: "YokMabar Admin" },
+  };
+
+  const discordComponents = [{
+    type: 1,
+    components: [{
+      type: 2,
+      style: 1,
+      label: "💬 Balas",
+      custom_id: `fb_admin_reply|${ticketId}`,
+    }],
+  }];
+
+  const waText =
+    `📩 *Feedback Masuk*\n` +
+    `Tiket    : *#${ticketId}*\n` +
+    `Platform : ${platform}\n` +
+    `User     : ${userLabel}\n` +
+    `Pesan    : ${message}\n` +
+    `Waktu    : ${waktu}\n\n` +
+    `Balas via WA dengan format:\n` +
+    `reply ${ticketId} [pesan balasan]`;
+
+  await Promise.allSettled([
+    getTelegramApi().sendMessage(config.TELEGRAM_ADMIN_CHAT_ID, telegramText, {
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "💬 Balas", callback_data: `fb_reply:${ticketId}` }]],
+      },
+    }),
+    getDiscordRest().post(Routes.channelMessages(config.DISCORD_ADMIN_CHANNEL_ID), {
+      body: { embeds: [discordEmbed], components: discordComponents },
+    }),
+    sendWhatsApp(config.WHATSAPP_ADMIN_NUMBER, waText),
+  ]);
+}
+
+/**
+ * Kirim balasan admin ke user di platform asal mereka.
+ */
+export async function notifyUserFeedbackReply(
+  platform: Platform,
+  platformUserId: string,
+  ticketId: string,
+  replyMessage: string,
+): Promise<void> {
+  const text =
+    `💬 <b>Balasan Admin — Tiket #${ticketId}</b>\n\n` +
+    `${replyMessage}\n\n` +
+    `<i>Kamu bisa kirim feedback lagi kapan saja lewat /feedback</i>`;
+
+  await sendToUser(platform, platformUserId, text);
+}
+
 // ─── Internal Router ──────────────────────────────────────────────────────────
 
 /**

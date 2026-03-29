@@ -10,6 +10,8 @@ import { createOrder, setPaymentUrl } from "../../services/order.service.js";
 import { createInvoice } from "../../services/payment.service.js";
 import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
+import { createFeedback, addAdminReply, getFeedbackWithUser, normalizeTicketId } from "../../services/feedback.service.js";
+import { notifyAdminFeedback, notifyUserFeedbackReply } from "../../services/notification.service.js";
 import { config } from "../../config.js";
 import { stripBrandPrefix } from "../../utils/formatter.js";
 import { checkGameId, getInquirySku } from "../../services/supplier.service.js";
@@ -36,7 +38,8 @@ type WaStep =
   | "input_serverid"
   | "confirm"
   | "offer_points"
-  | "select_payment";
+  | "select_payment"
+  | "feedback_input";
 
 interface WaState {
   step: WaStep;
@@ -112,7 +115,7 @@ async function sendMainMenu(phone: string): Promise<void> {
   const text =
     `🎮 *YokMabar Bot*\n` +
     `Top up game cepat, langsung dari WhatsApp!\n\n` +
-    numberedList(["Top Up Game", "Riwayat Transaksi", "Cek Poin"]) +
+    numberedList(["Top Up Game", "Riwayat Transaksi", "Cek Poin", "Kirim Feedback"]) +
     footer("Balas dengan angka pilihanmu");
   await sendWhatsApp(phone, text);
   await setState(phone, { step: "main_menu" });
@@ -150,6 +153,17 @@ export async function handleWhatsAppMessage(
 ): Promise<void> {
   const text = message.trim();
   const state = await getState(phone);
+
+  // Admin reply: "reply FB-XXXXX pesan balasan"
+  if (phone === config.WHATSAPP_ADMIN_NUMBER) {
+    const adminReplyMatch = text.match(/^reply\s+(FB-\w+)\s+(.+)$/i);
+    if (adminReplyMatch !== null) {
+      const ticketId = normalizeTicketId(adminReplyMatch[1]!);
+      const replyMessage = adminReplyMatch[2]!.trim();
+      await handleAdminWhatsAppReply(phone, ticketId, replyMessage);
+      return;
+    }
+  }
 
   // Kata kunci reset
   if (/^(batal|cancel|mulai|start|menu|halo|hai|hi|hello)$/i.test(text)) {
@@ -194,6 +208,9 @@ export async function handleWhatsAppMessage(
     case "select_payment":
       await handleSelectPayment(phone, text, state);
       break;
+    case "feedback_input":
+      await handleFeedbackInput(phone, text);
+      break;
   }
 }
 
@@ -203,6 +220,13 @@ async function handleMainMenu(phone: string, text: string, state: WaState): Prom
   const choice = parseInt(text, 10);
   if (choice === 1) {
     await sendGameMenu(phone);
+  } else if (choice === 4) {
+    await sendWhatsApp(
+      phone,
+      `📝 *Kirim Feedback*\n\nKetik pesan kamu — kritik, saran, atau laporan masalah:` +
+      footer("Balas dengan pesan feedback kamu"),
+    );
+    await setState(phone, { step: "feedback_input" });
   } else if (choice === 2) {
     const userId = await getOrCreateUser(phone);
     const orders = await getRecentOrders(userId);
@@ -222,8 +246,57 @@ async function handleMainMenu(phone: string, text: string, state: WaState): Prom
     );
     await sendMainMenu(phone);
   } else {
-    await sendWhatsApp(phone, `😊 Pilih angka 1–3 ya!` + footer("Balas dengan angka pilihanmu"));
+    await sendWhatsApp(phone, `😊 Pilih angka 1–4 ya!` + footer("Balas dengan angka pilihanmu"));
     await setState(phone, state);
+  }
+}
+
+async function handleFeedbackInput(phone: string, text: string): Promise<void> {
+  if (text.trim().length < 5) {
+    await sendWhatsApp(phone, `😊 Pesan terlalu singkat. Ceritakan lebih detail ya!` + footer("Ketik pesan feedback kamu"));
+    await setState(phone, { step: "feedback_input" });
+    return;
+  }
+
+  try {
+    const userId = await getOrCreateUser(phone);
+    const feedback = await createFeedback(userId, text.trim());
+    await notifyAdminFeedback(feedback.ticketId, "WHATSAPP", phone.replace(/\D/g, ""), text.trim());
+
+    await sendWhatsApp(
+      phone,
+      `✅ *Feedback diterima!*\n\n` +
+      `Tiket : *#${feedback.ticketId}*\n` +
+      `Pesan : ${text.trim()}\n\n` +
+      `Tim kami akan segera merespons. Terima kasih! 🙏`,
+    );
+  } catch {
+    await sendWhatsApp(phone, `😅 Ups, ada gangguan sebentar. Coba lagi dalam beberapa menit ya!`);
+  }
+
+  await sendMainMenu(phone);
+}
+
+async function handleAdminWhatsAppReply(phone: string, ticketId: string, replyMessage: string): Promise<void> {
+  try {
+    const feedback = await getFeedbackWithUser(ticketId);
+    if (feedback === null) {
+      await sendWhatsApp(phone, `😅 Tiket #${ticketId} tidak ditemukan.`);
+      return;
+    }
+
+    await addAdminReply(ticketId, replyMessage);
+    await notifyUserFeedbackReply(
+      feedback.user.platform,
+      feedback.user.platformUserId,
+      ticketId,
+      replyMessage,
+    );
+
+    await sendWhatsApp(phone, `✅ Balasan untuk *#${ticketId}* berhasil dikirim ke ${feedback.user.platform}!`);
+  } catch (err) {
+    console.error("[whatsapp-admin] feedback reply error:", err);
+    await sendWhatsApp(phone, `😅 Gagal mengirim balasan. Coba lagi ya!`);
   }
 }
 

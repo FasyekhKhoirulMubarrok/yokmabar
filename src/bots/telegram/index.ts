@@ -2,11 +2,14 @@ import { Bot, session } from "grammy";
 import { conversations, createConversation } from "@grammyjs/conversations";
 import { config } from "../../config.js";
 import { type BotContext, topUpScene } from "./scenes/topup.scene.js";
+import { feedbackScene } from "./scenes/feedback.scene.js";
 import {
   registerStartCommand,
   registerTopupCommand,
   registerRiwayatCommand,
   registerPoinCommand,
+  registerFeedbackCommand,
+  registerAdminFeedbackReplyHandler,
 } from "./commands.js";
 
 // ─── Bot Instance ─────────────────────────────────────────────────────────────
@@ -25,8 +28,9 @@ telegramBot.use(
 // 2. Conversations plugin
 telegramBot.use(conversations());
 
-// 3. Register scene
+// 3. Register scenes
 telegramBot.use(createConversation(topUpScene, "topUpScene"));
+telegramBot.use(createConversation(feedbackScene, "feedbackScene"));
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
 
@@ -34,6 +38,8 @@ registerStartCommand(telegramBot);
 registerTopupCommand(telegramBot);
 registerRiwayatCommand(telegramBot);
 registerPoinCommand(telegramBot);
+registerFeedbackCommand(telegramBot);
+registerAdminFeedbackReplyHandler(telegramBot);
 
 // ─── Fallback ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +65,7 @@ export async function startTelegramBot(): Promise<void> {
       { command: "topup", description: "Top up game" },
       { command: "riwayat", description: "5 transaksi terakhir" },
       { command: "poin", description: "Cek saldo poin" },
+      { command: "feedback", description: "Kirim kritik, saran, atau laporan" },
     ]);
   } catch (err) {
     console.warn("[telegram-bot] setMyCommands gagal (akan dicoba ulang saat restart):", err);

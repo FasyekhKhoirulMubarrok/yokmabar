@@ -1,7 +1,11 @@
 import { InlineKeyboard, type Bot } from "grammy";
 import { db } from "../../db/client.js";
+import { redis } from "../../db/redis.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { getPointSummary } from "../../services/point.service.js";
+import { getFeedbackWithUser, addAdminReply, normalizeTicketId } from "../../services/feedback.service.js";
+import { notifyUserFeedbackReply } from "../../services/notification.service.js";
+import { config } from "../../config.js";
 import { type BotContext } from "./scenes/topup.scene.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -162,6 +166,87 @@ export function registerRiwayatCommand(bot: Bot<BotContext>): void {
 
     const orders = await getRecentOrders(user.id);
     await ctx.reply(formatOrderHistory(orders), { parse_mode: "HTML" });
+  });
+}
+
+// ─── /feedback ───────────────────────────────────────────────────────────────
+
+export function registerFeedbackCommand(bot: Bot<BotContext>): void {
+  bot.command("feedback", async (ctx) => {
+    await ctx.conversation.enter("feedbackScene");
+  });
+}
+
+// ─── Admin: Reply Feedback ────────────────────────────────────────────────────
+
+const ADMIN_REPLY_KEY = (chatId: string) => `tg:admin_reply:${chatId}`;
+
+export function registerAdminFeedbackReplyHandler(bot: Bot<BotContext>): void {
+  // Klik tombol [💬 Balas] di notifikasi admin
+  bot.callbackQuery(/^fb_reply:.+$/, async (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) {
+      await ctx.answerCallbackQuery("Hanya admin yang bisa membalas.");
+      return;
+    }
+
+    const ticketId = ctx.callbackQuery.data.replace("fb_reply:", "");
+    await ctx.answerCallbackQuery();
+    await redis.set(ADMIN_REPLY_KEY(chatId), ticketId, "EX", 300);
+
+    await ctx.reply(
+      `✏️ Ketik balasan untuk tiket <b>#${ticketId}</b>:\n` +
+      `<i>Kirim /batal untuk membatalkan.</i>`,
+      { parse_mode: "HTML" },
+    );
+  });
+
+  // Pesan teks dari admin chat — cek apakah ada pending reply
+  bot.on("message:text", async (ctx, next) => {
+    const chatId = ctx.chat.id.toString();
+    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) {
+      await next();
+      return;
+    }
+
+    const pendingTicket = await redis.get(ADMIN_REPLY_KEY(chatId));
+    if (pendingTicket === null) {
+      await next();
+      return;
+    }
+
+    const message = ctx.message.text;
+
+    if (message.startsWith("/")) {
+      await next();
+      return;
+    }
+
+    await redis.del(ADMIN_REPLY_KEY(chatId));
+
+    try {
+      const feedback = await getFeedbackWithUser(pendingTicket);
+      if (feedback === null) {
+        await ctx.reply(`😅 Tiket #${pendingTicket} tidak ditemukan.`);
+        return;
+      }
+
+      await addAdminReply(pendingTicket, message);
+      await notifyUserFeedbackReply(
+        feedback.user.platform,
+        feedback.user.platformUserId,
+        pendingTicket,
+        message,
+      );
+
+      await ctx.reply(
+        `✅ Balasan untuk <b>#${pendingTicket}</b> berhasil dikirim ke ${feedback.user.platform}!`,
+        { parse_mode: "HTML" },
+      );
+    } catch (err) {
+      console.error("[telegram-admin] feedback reply error:", err);
+      await ctx.reply("😅 Gagal mengirim balasan. Coba lagi ya!");
+    }
   });
 }
 

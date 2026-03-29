@@ -16,6 +16,7 @@ model User {
   orders          Order[]
   points          Point[]
   serverReferrals ServerReferral[]
+  feedbacks       Feedback[]
 
   @@unique([platform, platformUserId])
 }
@@ -90,6 +91,38 @@ model Point {
 
   @@index([userId])
   @@index([expiredAt])
+}
+
+model Feedback {
+  id        String          @id @default(uuid())
+  ticketId  String          @unique
+  userId    String
+  user      User            @relation(fields: [userId], references: [id])
+  message   String
+  status    FeedbackStatus  @default(OPEN)
+  replies   FeedbackReply[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model FeedbackReply {
+  id         String   @id @default(uuid())
+  feedbackId String
+  feedback   Feedback @relation(fields: [feedbackId], references: [id])
+  message    String
+  fromAdmin  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([feedbackId])
+}
+
+enum FeedbackStatus {
+  OPEN
+  REPLIED
+  CLOSED
 }
 
 enum Platform {
