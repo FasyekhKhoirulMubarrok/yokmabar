@@ -109,6 +109,7 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleAdminCloseFeedbackButton(interaction);
       } else if (interaction.customId.startsWith("fb_user_reply|")) {
         await handleUserFeedbackReplyButton(interaction);
+      }
       return;
     }
   } catch (err) {
