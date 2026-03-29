@@ -368,7 +368,6 @@ export async function notifyUserFeedbackReply(
         reply_markup: {
           inline_keyboard: [[
             { text: "💬 Balas", callback_data: `fb_user_reply:${ticketId}` },
-            { text: "✅ Tutup Tiket", callback_data: `fb_user_close:${ticketId}` },
           ]],
         },
       });
@@ -378,12 +377,13 @@ export async function notifyUserFeedbackReply(
         type: 1,
         components: [
           { type: 2, style: 1, label: "💬 Balas", custom_id: `fb_user_reply|${ticketId}` },
-          { type: 2, style: 3, label: "✅ Tutup Tiket", custom_id: `fb_user_close|${ticketId}` },
         ],
       }]);
       break;
     case "WHATSAPP":
-      await sendWhatsApp(platformUserId, plainText);
+      await sendWhatsApp(platformUserId,
+        `💬 Balasan Admin — Tiket #${ticketId}\n\n${replyMessage}\n\nBalas: reply ${ticketId} pesan kamu`
+      );
       break;
   }
 }

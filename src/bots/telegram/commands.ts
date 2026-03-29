@@ -223,13 +223,6 @@ export function registerAdminFeedbackReplyHandler(bot: Bot<BotContext>): void {
     );
   });
 
-  // ── User: klik [✅ Tutup Tiket] ─────────────────────────────────────────────
-  bot.callbackQuery(/^fb_user_close:.+$/, async (ctx) => {
-    await ctx.answerCallbackQuery();
-    const ticketId = ctx.callbackQuery.data.replace("fb_user_close:", "");
-    await handleCloseFeedback(ctx, ticketId, false);
-  });
-
   // ── Pesan teks — cek pending reply (admin atau user) ────────────────────────
   bot.on("message:text", async (ctx, next) => {
     const chatId = ctx.chat.id.toString();

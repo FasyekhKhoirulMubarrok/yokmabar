@@ -167,11 +167,13 @@ export async function handleWhatsAppMessage(
     return;
   }
 
-  // Tutup tiket: "tutup FB-XXXXX" — berlaku untuk admin dan user
+  // Tutup tiket: "tutup FB-XXXXX" — hanya admin
   const tutupMatch = text.match(/^tutup\s+(FB-\w+)$/i);
   if (tutupMatch !== null) {
-    const ticketId = normalizeTicketId(tutupMatch[1]!);
-    await handleWhatsAppCloseFeedback(phone, ticketId, phone === config.WHATSAPP_ADMIN_NUMBER);
+    if (phone === config.WHATSAPP_ADMIN_NUMBER) {
+      const ticketId = normalizeTicketId(tutupMatch[1]!);
+      await handleWhatsAppCloseFeedback(phone, ticketId, true);
+    }
     return;
   }
 

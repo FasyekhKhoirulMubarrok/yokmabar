@@ -16,7 +16,6 @@ import {
   handleAdminCloseFeedbackButton,
   handleUserFeedbackReplyButton,
   handleUserFeedbackReplyModalSubmit,
-  handleUserCloseFeedbackButton,
 } from "./commands/feedback.js";
 import { recordServerReferral } from "../../services/referral.service.js";
 
@@ -110,9 +109,6 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleAdminCloseFeedbackButton(interaction);
       } else if (interaction.customId.startsWith("fb_user_reply|")) {
         await handleUserFeedbackReplyButton(interaction);
-      } else if (interaction.customId.startsWith("fb_user_close|")) {
-        await handleUserCloseFeedbackButton(interaction);
-      }
       return;
     }
   } catch (err) {
