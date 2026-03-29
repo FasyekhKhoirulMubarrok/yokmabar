@@ -6,7 +6,7 @@ import health from "./health.js";
 import webhookMidtrans from "./webhook.midtrans.js";
 import webhookDigiflazz from "./webhook.digiflazz.js";
 import oauthDiscord from "./oauth.discord.js";
-import { triggerOndemandSync } from "../jobs/sync.worker.js";
+import adminPanel from "./admin/index.js";
 
 const app = new Hono();
 
@@ -64,11 +64,7 @@ app.route("/health", health);
 app.route("/webhook/midtrans", webhookMidtrans);
 app.route("/webhook/digiflazz", webhookDigiflazz);
 app.route("/oauth/discord", oauthDiscord);
-
-app.post("/admin/sync-prices", async (c) => {
-  await triggerOndemandSync();
-  return c.json({ message: "Sync job queued." });
-});
+app.route("/", adminPanel);
 
 // ─── 404 fallback ─────────────────────────────────────────────────────────────
 

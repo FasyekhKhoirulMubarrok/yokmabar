@@ -43,6 +43,11 @@ const EnvSchema = z.object({
   // ── Markup Harga ──────────────────────────────────────────────────────────
   PRICE_MARKUP_RATE: z.coerce.number().default(0.05), // 5% harga normal
   PRICE_EVENT_RATE:  z.coerce.number().default(0.03), // 3% harga saat event
+
+  // ── Admin Web Panel ───────────────────────────────────────────────────────
+  ADMIN_USERNAME:      z.string().default("admin"),
+  ADMIN_PASSWORD_HASH: z.string().min(1),
+  ADMIN_JWT_SECRET:    z.string().min(16),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
