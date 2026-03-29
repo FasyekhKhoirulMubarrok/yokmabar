@@ -10,6 +10,7 @@ import {
   registerPoinCommand,
   registerFeedbackCommand,
   registerAdminFeedbackReplyHandler,
+  registerAdminEventHandler,
 } from "./commands.js";
 
 // ─── Bot Instance ─────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ registerRiwayatCommand(telegramBot);
 registerPoinCommand(telegramBot);
 registerFeedbackCommand(telegramBot);
 registerAdminFeedbackReplyHandler(telegramBot);
+registerAdminEventHandler(telegramBot);
 
 // ─── Fallback ─────────────────────────────────────────────────────────────────
 

@@ -27,6 +27,7 @@ model Product {
   category     String
   itemCode     String   @unique
   itemName     String
+  basePrice    Int      @default(0)
   price        Int
   isActive     Boolean  @default(true)
   isPopular    Boolean  @default(false)
@@ -38,6 +39,22 @@ model Product {
   @@index([brand])
   @@index([isActive, isPopular])
   @@index([category])
+}
+
+model PriceEvent {
+  id                String     @id @default(uuid())
+  name              String
+  isActive          Boolean    @default(false)
+  displayMarkupRate Float
+  actualMarkupRate  Float
+  scope             EventScope @default(ALL)
+  scopeValue        String?
+  startAt           DateTime?
+  endAt             DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([isActive])
 }
 
 model Order {
@@ -123,6 +140,11 @@ enum FeedbackStatus {
   OPEN
   REPLIED
   CLOSED
+}
+
+enum EventScope {
+  ALL
+  BRAND
 }
 
 enum Platform {

@@ -28,6 +28,7 @@ import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
 import { checkGameId, getInquirySku } from "../../../services/supplier.service.js";
+import { getActiveEvent, applyEventPricing } from "../../../services/event.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -113,7 +114,10 @@ export async function handleTopupAutocomplete(
       return;
     }
 
-    const products = await getProductsByBrand(selectedBrand);
+    const [products, activeEvent] = await Promise.all([
+      getProductsByBrand(selectedBrand),
+      getActiveEvent(selectedBrand),
+    ]);
     const filtered = products
       .filter((p) =>
         p.itemName.toLowerCase().includes(focused.value.toLowerCase()),
@@ -121,10 +125,14 @@ export async function handleTopupAutocomplete(
       .slice(0, 25);
 
     await interaction.respond(
-      filtered.map((p) => ({
-        name: formatNominalLabel(selectedBrand, p.itemName, p.price),
-        value: p.itemCode,
-      })),
+      filtered.map((p) => {
+        if (activeEvent !== null && p.basePrice > 0) {
+          const ep = applyEventPricing(p.basePrice, activeEvent);
+          const base = formatNominalLabel(selectedBrand, p.itemName, ep.actualPrice);
+          return { name: `🔥 ${base} (was ${formatRupiah(ep.strikethroughPrice)})`, value: p.itemCode };
+        }
+        return { name: formatNominalLabel(selectedBrand, p.itemName, p.price), value: p.itemCode };
+      }),
     );
   }
 }
@@ -228,24 +236,34 @@ export async function handleTopupModalSubmit(
   const discordUser = interaction.user;
   const userId = await getOrCreateUser(discordUser.id, discordUser.username);
 
-  const [inquiryResult, pointSummary] = await Promise.all([
+  const [inquiryResult, pointSummary, activeEvent] = await Promise.all([
     checkGameId(brand, gameUserId, gameServerId),
     getPointSummary(userId),
+    getActiveEvent(brand),
   ]);
+
+  const eventPricing = activeEvent !== null && product.basePrice > 0
+    ? applyEventPricing(product.basePrice, activeEvent)
+    : null;
+  const effectivePrice = eventPricing !== null ? eventPricing.actualPrice : product.price;
 
   // Bangun embed konfirmasi
   const idDisplay = gameServerId
     ? `${gameUserId} (Server: ${gameServerId})`
     : gameUserId;
 
+  const hargaValue = eventPricing !== null
+    ? `~~${formatRupiah(eventPricing.strikethroughPrice)}~~ → **${formatRupiah(effectivePrice)}** 🔥 Diskon ${eventPricing.discountPercent}%`
+    : formatRupiah(effectivePrice);
+
   const embed = new EmbedBuilder()
-    .setColor(0x00b4d8)
-    .setTitle("📋 Konfirmasi Top Up")
+    .setColor(eventPricing !== null ? 0xff6b35 : 0x00b4d8)
+    .setTitle(eventPricing !== null ? "🔥 Konfirmasi Top Up — Event Diskon!" : "📋 Konfirmasi Top Up")
     .addFields(
       { name: "Game",    value: product.brand,            inline: true },
       { name: "Item",    value: stripBrandPrefix(product.brand, product.itemName), inline: true },
-      { name: "Harga",   value: formatRupiah(product.price), inline: true },
-      { name: "User ID", value: idDisplay,                 inline: false },
+      { name: "Harga",   value: hargaValue, inline: false },
+      { name: "User ID", value: idDisplay,  inline: false },
     )
     .setFooter({ text: "YokMabar · Top up cepat, langsung gas!" })
     .setTimestamp();
@@ -260,17 +278,17 @@ export async function handleTopupModalSubmit(
 
   // Tambah info poin
   if (pointSummary.canRedeem) {
-    const isFree = pointSummary.maxDiscount >= product.price;
+    const isFree = pointSummary.maxDiscount >= effectivePrice;
     embed.addFields({
       name: isFree ? "🎉 GRATIS dengan Poin!" : "🎁 Poin Tersedia",
       value: isFree
         ? `${pointSummary.activePoints} poin cukup untuk item ini — tap tombol di bawah!`
-        : `${pointSummary.activePoints} poin → hemat ${formatRupiah(pointSummary.maxDiscount)} (total: ${formatRupiah(product.price - pointSummary.maxDiscount)})`,
+        : `${pointSummary.activePoints} poin → hemat ${formatRupiah(pointSummary.maxDiscount)} (total: ${formatRupiah(effectivePrice - pointSummary.maxDiscount)})`,
       inline: false,
     });
   }
 
-  const confirmLabel = pointSummary.canRedeem && pointSummary.maxDiscount >= product.price
+  const confirmLabel = pointSummary.canRedeem && pointSummary.maxDiscount >= effectivePrice
     ? "🎉 Gratis pakai poin!"
     : "💳 Bayar dengan QRIS";
 
@@ -318,15 +336,21 @@ export async function handleTopupButton(
 
   // Ambil produk
   const discordUser = interaction.user;
-  const products = await getProductsByBrand(
-    interaction.message.embeds[0]?.fields.find((f) => f.name === "Game")?.value ?? "",
-  );
+  const brand = interaction.message.embeds[0]?.fields.find((f) => f.name === "Game")?.value ?? "";
+  const products = await getProductsByBrand(brand);
   const product = products.find((p: Product) => p.itemCode === itemCode);
 
   if (product === undefined || userId === undefined) {
     await interaction.editReply({ content: "😅 Produk tidak ditemukan.", embeds: [], components: [] });
     return;
   }
+
+  // Re-check event pricing saat tombol ditekan
+  const activeEvent = await getActiveEvent(brand);
+  const eventPricing = activeEvent !== null && product.basePrice > 0
+    ? applyEventPricing(product.basePrice, activeEvent)
+    : null;
+  const baseAmount = eventPricing !== null ? eventPricing.actualPrice : product.price;
 
   let pointDiscount = 0;
   if (pointsToRedeem > 0) {
@@ -339,7 +363,7 @@ export async function handleTopupButton(
     }
   }
 
-  const finalAmount = Math.max(product.price - pointDiscount, 0);
+  const finalAmount = Math.max(baseAmount - pointDiscount, 0);
 
   // Buat order + invoice
   let order;

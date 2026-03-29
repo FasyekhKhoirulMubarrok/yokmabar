@@ -12,7 +12,8 @@ import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.
 import { checkGameId, getInquirySku } from "../../../services/supplier.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
-import { type Product } from "@prisma/client";
+import { type Product, type PriceEvent } from "@prisma/client";
+import { getActiveEvent, applyEventPricing, type EventPricing } from "../../../services/event.service.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ async function stepSelectNominal(
   conversation: TopUpConversation,
   ctx: Context,
   brand: string,
+  event: PriceEvent | null,
 ): Promise<Product | null> {
   const products = await conversation.external(() => getProductsByBrand(brand));
 
@@ -163,12 +165,19 @@ async function stepSelectNominal(
   // Bangun teks list bernomor
   const lines = list.map((p, i) => {
     const num = String(i + 1).padStart(2, " ");
+    if (event !== null && p.basePrice > 0) {
+      const ep = applyEventPricing(p.basePrice, event);
+      const clean = stripBrandPrefix(brand, p.itemName);
+      return `${num}. ${getBrandEmoji(brand)} ${clean}\n    <s>${formatRupiah(ep.strikethroughPrice)}</s> → <b>${formatRupiah(ep.actualPrice)}</b> 🔥 -${ep.discountPercent}%`;
+    }
     const label = formatNominalLabel(brand, p.itemName, p.price);
     return `${num}. ${label}`;
   });
-  const listText =
-    `${getBrandEmoji(brand)} <b>Pilih nominal ${brand}:</b>\n\n` +
-    `<code>${lines.join("\n")}</code>`;
+
+  // Gunakan <code> hanya jika tidak ada event (agar tag HTML bekerja saat event)
+  const listText = event !== null
+    ? `${getBrandEmoji(brand)} <b>Pilih nominal ${brand}:</b>\n\n${lines.join("\n")}`
+    : `${getBrandEmoji(brand)} <b>Pilih nominal ${brand}:</b>\n\n<code>${lines.join("\n")}</code>`;
 
   // Bangun tombol angka 5 per baris + tombol batal
   const keyboard = new InlineKeyboard();
@@ -246,6 +255,8 @@ async function stepConfirm(
   product: Product,
   gameUserId: string,
   gameServerId: string | null,
+  effectivePrice: number,
+  eventPricing: EventPricing | null,
   inquiryUsername?: string | null,
 ): Promise<boolean> {
   const idLine = gameServerId
@@ -256,11 +267,15 @@ async function stepConfirm(
     ? `\n✅ Username : ${inquiryUsername}`
     : "";
 
+  const hargaLine = eventPricing !== null
+    ? `Harga    : <s>${formatRupiah(eventPricing.strikethroughPrice)}</s> → <b>${formatRupiah(effectivePrice)}</b> 🔥 Diskon ${eventPricing.discountPercent}%`
+    : `Harga    : ${formatRupiah(effectivePrice)}`;
+
   const text =
     `📋 <b>Konfirmasi Order</b>\n\n` +
     `Game     : ${product.brand}\n` +
     `Item     : ${stripBrandPrefix(product.brand, product.itemName)}\n` +
-    `Harga    : ${formatRupiah(product.price)}\n` +
+    `${hargaLine}\n` +
     `${idLine}${verifiedLine}\n\n` +
     `Pastikan ID sudah benar ya!`;
 
@@ -370,12 +385,21 @@ export async function topUpScene(
     }
   }
 
+  // ── Cek event aktif untuk brand ini ────────────────────────────────────────
+  const activeEvent = await conversation.external(() => getActiveEvent(brand!));
+
   // ── Step 3: Pilih nominal ───────────────────────────────────────────────────
-  const product = await stepSelectNominal(conversation, ctx, brand);
+  const product = await stepSelectNominal(conversation, ctx, brand, activeEvent);
   if (product === null) {
     await ctx.reply("😊 Order dibatalkan. Ketik /topup untuk mulai lagi!");
     return;
   }
+
+  // Hitung effective price (event atau normal)
+  const eventPricing = activeEvent !== null && product.basePrice > 0
+    ? applyEventPricing(product.basePrice, activeEvent)
+    : null;
+  const effectivePrice = eventPricing !== null ? eventPricing.actualPrice : product.price;
 
   // ── Step 4: Input User ID (+ Server ID jika perlu) ─────────────────────────
   const { gameUserId, gameServerId } = await stepInputUserId(conversation, ctx, brand);
@@ -400,7 +424,7 @@ export async function topUpScene(
   // ── Step 5: Konfirmasi ──────────────────────────────────────────────────────
   const confirmed = await stepConfirm(
     conversation, ctx, product, gameUserId, gameServerId,
-    inquiryResult?.username,
+    effectivePrice, eventPricing, inquiryResult?.username,
   );
   if (!confirmed) {
     await ctx.reply("😊 Order dibatalkan. Ketik /topup untuk mulai lagi!");
@@ -408,8 +432,8 @@ export async function topUpScene(
   }
 
   // ── Step 6: Tawaran poin ────────────────────────────────────────────────────
-  const pointDiscount = await stepOfferPoints(conversation, ctx, userId, product.price);
-  const finalAmount = Math.max(product.price - pointDiscount, 0);
+  const pointDiscount = await stepOfferPoints(conversation, ctx, userId, effectivePrice);
+  const finalAmount = Math.max(effectivePrice - pointDiscount, 0);
 
   // ── Step 7: Buat order + invoice (QRIS) ─────────────────────────────────────
   await ctx.reply("⏳ Memproses order...");

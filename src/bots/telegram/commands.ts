@@ -5,6 +5,10 @@ import { getRecentOrders, formatOrderHistory } from "../../services/history.serv
 import { getPointSummary } from "../../services/point.service.js";
 import { getFeedbackWithUser, addAdminReply, addUserReply, closeFeedback, normalizeTicketId } from "../../services/feedback.service.js";
 import { notifyUserFeedbackReply, notifyAdminFeedbackUserReply, notifyUserFeedbackClosed } from "../../services/notification.service.js";
+import {
+  listEvents, getEventByShortId, createEvent, startEvent, stopEvent, deleteEvent,
+} from "../../services/event.service.js";
+import { type PriceEvent } from "@prisma/client";
 import { config } from "../../config.js";
 import { type BotContext } from "./scenes/topup.scene.js";
 
@@ -281,6 +285,303 @@ async function handleCloseFeedback(ctx: { reply: (text: string, opts?: object) =
     console.error("[telegram] close feedback error:", err);
     await ctx.reply("😅 Gagal menutup tiket. Coba lagi ya!");
   }
+}
+
+// ─── Admin: Event Management ──────────────────────────────────────────────────
+
+const EVENT_CREATE_KEY = (chatId: string) => `tg:event_create:${chatId}`;
+const EVENT_CREATE_TTL = 300; // 5 menit
+
+interface EventCreateState {
+  step: "name" | "display_rate" | "scope_value" | "end_date";
+  name?: string;
+  displayMarkupRate?: number;
+  scope?: "ALL" | "BRAND";
+  scopeValue?: string;
+}
+
+function formatEventStatus(event: PriceEvent): string {
+  const status = event.isActive ? "🟢 AKTIF" : "⚫ TIDAK AKTIF";
+  const scope = event.scope === "ALL"
+    ? "Semua Game"
+    : `Game: ${event.scopeValue ?? "-"}`;
+  const endDate = event.endAt !== null
+    ? `Berakhir: ${new Date(event.endAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}`
+    : "Berakhir: Manual stop";
+  const displayPct = Math.round(event.displayMarkupRate * 100);
+  const actualPct = Math.round(event.actualMarkupRate * 100);
+  return `*${event.name}* ${status}\nDiskon tampil: ${displayPct}% | Bayar: ${actualPct}% | ${scope}\n${endDate}\nID: \`${event.id.slice(0, 8)}\``;
+}
+
+async function showEventList(ctx: { reply: (text: string, opts?: object) => Promise<unknown> }): Promise<void> {
+  const events = await listEvents();
+
+  if (events.length === 0) {
+    const keyboard = { inline_keyboard: [[{ text: "➕ Buat Event Baru", callback_data: "event:create" }]] };
+    await ctx.reply("📋 Belum ada event. Buat event baru yuk!", { parse_mode: "Markdown", reply_markup: keyboard });
+    return;
+  }
+
+  const lines = events.map((e, i) => `${i + 1}. ${formatEventStatus(e)}`).join("\n\n");
+  const buttons = events.flatMap((e) => {
+    const shortId = e.id.slice(0, 8);
+    const row = [];
+    if (!e.isActive) row.push({ text: `▶️ Start #${shortId}`, callback_data: `event_start:${shortId}` });
+    else row.push({ text: `⏹ Stop #${shortId}`, callback_data: `event_stop:${shortId}` });
+    row.push({ text: `🗑 Hapus #${shortId}`, callback_data: `event_del:${shortId}` });
+    return [row];
+  });
+  buttons.push([{ text: "➕ Buat Event Baru", callback_data: "event:create" }]);
+
+  await ctx.reply(
+    `📋 *Daftar Event Harga:*\n\n${lines}`,
+    { parse_mode: "Markdown", reply_markup: { inline_keyboard: buttons } },
+  );
+}
+
+export function registerAdminEventHandler(bot: Bot<BotContext>): void {
+  // ── /event → tampilkan list ────────────────────────────────────────────────
+  bot.command("event", async (ctx) => {
+    if (ctx.chat?.id.toString() !== config.TELEGRAM_ADMIN_CHAT_ID) return;
+    await showEventList(ctx);
+  });
+
+  // ── Mulai buat event baru ──────────────────────────────────────────────────
+  bot.callbackQuery("event:create", async (ctx) => {
+    if (ctx.chat?.id.toString() !== config.TELEGRAM_ADMIN_CHAT_ID) {
+      await ctx.answerCallbackQuery("Hanya admin.");
+      return;
+    }
+    const chatId = ctx.chat.id.toString();
+    await ctx.answerCallbackQuery();
+    const state: EventCreateState = { step: "name" };
+    await redis.set(EVENT_CREATE_KEY(chatId), JSON.stringify(state), "EX", EVENT_CREATE_TTL);
+    await ctx.reply("✏️ Ketik *nama event* (contoh: Diskon Lebaran):\n_/batal untuk batal_", { parse_mode: "Markdown" });
+  });
+
+  // ── Pilih scope ────────────────────────────────────────────────────────────
+  bot.callbackQuery("event_scope:all", async (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) { await ctx.answerCallbackQuery("Hanya admin."); return; }
+    await ctx.answerCallbackQuery();
+    const raw = await redis.get(EVENT_CREATE_KEY(chatId));
+    if (raw === null) { await ctx.reply("😅 Sesi pembuatan event kadaluarsa. Ulangi /event."); return; }
+    const state = JSON.parse(raw) as EventCreateState;
+    const next: EventCreateState = { ...state, step: "end_date", scope: "ALL" };
+    await redis.set(EVENT_CREATE_KEY(chatId), JSON.stringify(next), "EX", EVENT_CREATE_TTL);
+    await ctx.reply(
+      "📅 Tanggal berakhir event? Format: `DD/MM/YYYY`\nAtau ketik `skip` untuk stop manual.",
+      { parse_mode: "Markdown" },
+    );
+  });
+
+  bot.callbackQuery("event_scope:brand", async (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) { await ctx.answerCallbackQuery("Hanya admin."); return; }
+    await ctx.answerCallbackQuery();
+    const raw = await redis.get(EVENT_CREATE_KEY(chatId));
+    if (raw === null) { await ctx.reply("😅 Sesi pembuatan event kadaluarsa. Ulangi /event."); return; }
+    const state = JSON.parse(raw) as EventCreateState;
+    const next: EventCreateState = { ...state, step: "scope_value", scope: "BRAND" };
+    await redis.set(EVENT_CREATE_KEY(chatId), JSON.stringify(next), "EX", EVENT_CREATE_TTL);
+    await ctx.reply("🎮 Ketik nama game (contoh: `Free Fire`, `Mobile Legends`):", { parse_mode: "Markdown" });
+  });
+
+  // ── Konfirmasi buat event ──────────────────────────────────────────────────
+  bot.callbackQuery(/^event_confirm:.+$/, async (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) { await ctx.answerCallbackQuery("Hanya admin."); return; }
+    await ctx.answerCallbackQuery();
+    const raw = await redis.get(EVENT_CREATE_KEY(chatId));
+    if (raw === null) { await ctx.reply("😅 Sesi pembuatan event kadaluarsa."); return; }
+    await redis.del(EVENT_CREATE_KEY(chatId));
+
+    const action = ctx.callbackQuery.data.replace("event_confirm:", "");
+    if (action === "cancel") { await ctx.reply("😊 Pembuatan event dibatalkan."); return; }
+
+    const state = JSON.parse(raw) as EventCreateState & { endAtStr?: string };
+    if (state.name === undefined || state.displayMarkupRate === undefined || state.scope === undefined) {
+      await ctx.reply("😅 Data event tidak lengkap. Ulangi /event.");
+      return;
+    }
+
+    let endAt: Date | undefined;
+    if (state.endAtStr !== undefined) {
+      const [dd, mm, yyyy] = state.endAtStr.split("/").map(Number);
+      endAt = new Date(yyyy!, (mm! - 1), dd!, 23, 59, 59);
+    }
+
+    try {
+      const event = await createEvent({
+        name: state.name,
+        displayMarkupRate: state.displayMarkupRate,
+        actualMarkupRate: config.PRICE_EVENT_RATE,
+        scope: state.scope,
+        ...(state.scopeValue !== undefined && { scopeValue: state.scopeValue }),
+        ...(endAt !== undefined && { endAt }),
+      });
+
+      if (action === "active") await startEvent(event.id);
+
+      const statusMsg = action === "active" ? "✅ Event *aktif* sekarang!" : "📋 Event dibuat (belum aktif). Gunakan ▶️ Start untuk mengaktifkan.";
+      await ctx.reply(
+        `${statusMsg}\n\n${formatEventStatus({ ...event, isActive: action === "active" })}`,
+        { parse_mode: "Markdown" },
+      );
+    } catch (err) {
+      console.error("[telegram-admin] createEvent error:", err);
+      await ctx.reply("😅 Gagal membuat event. Coba lagi ya!");
+    }
+  });
+
+  // ── Start / Stop / Delete event ────────────────────────────────────────────
+  bot.callbackQuery(/^event_start:.+$/, async (ctx) => {
+    if (ctx.chat?.id.toString() !== config.TELEGRAM_ADMIN_CHAT_ID) { await ctx.answerCallbackQuery("Hanya admin."); return; }
+    await ctx.answerCallbackQuery();
+    const shortId = ctx.callbackQuery.data.replace("event_start:", "");
+    const event = await getEventByShortId(shortId);
+    if (event === null) { await ctx.reply("😅 Event tidak ditemukan."); return; }
+    await startEvent(event.id);
+    await ctx.reply(`✅ Event *${event.name}* berhasil diaktifkan! 🚀`, { parse_mode: "Markdown" });
+  });
+
+  bot.callbackQuery(/^event_stop:.+$/, async (ctx) => {
+    if (ctx.chat?.id.toString() !== config.TELEGRAM_ADMIN_CHAT_ID) { await ctx.answerCallbackQuery("Hanya admin."); return; }
+    await ctx.answerCallbackQuery();
+    const shortId = ctx.callbackQuery.data.replace("event_stop:", "");
+    const event = await getEventByShortId(shortId);
+    if (event === null) { await ctx.reply("😅 Event tidak ditemukan."); return; }
+    await stopEvent(event.id);
+    await ctx.reply(`⏹ Event *${event.name}* dihentikan.`, { parse_mode: "Markdown" });
+  });
+
+  bot.callbackQuery(/^event_del:.+$/, async (ctx) => {
+    if (ctx.chat?.id.toString() !== config.TELEGRAM_ADMIN_CHAT_ID) { await ctx.answerCallbackQuery("Hanya admin."); return; }
+    await ctx.answerCallbackQuery();
+    const shortId = ctx.callbackQuery.data.replace("event_del:", "");
+    const event = await getEventByShortId(shortId);
+    if (event === null) { await ctx.reply("😅 Event tidak ditemukan."); return; }
+    const keyboard = {
+      inline_keyboard: [[
+        { text: "✅ Ya, hapus", callback_data: `event_del_confirm:${shortId}` },
+        { text: "❌ Batal",     callback_data: "event_del_abort" },
+      ]],
+    };
+    await ctx.reply(`⚠️ Hapus event *${event.name}*? Tindakan ini tidak bisa dibatalkan.`, { parse_mode: "Markdown", reply_markup: keyboard });
+  });
+
+  bot.callbackQuery(/^event_del_confirm:.+$/, async (ctx) => {
+    if (ctx.chat?.id.toString() !== config.TELEGRAM_ADMIN_CHAT_ID) { await ctx.answerCallbackQuery("Hanya admin."); return; }
+    await ctx.answerCallbackQuery();
+    const shortId = ctx.callbackQuery.data.replace("event_del_confirm:", "");
+    const event = await getEventByShortId(shortId);
+    if (event === null) { await ctx.reply("😅 Event tidak ditemukan."); return; }
+    await deleteEvent(event.id);
+    await ctx.reply(`🗑 Event *${event.name}* berhasil dihapus.`, { parse_mode: "Markdown" });
+  });
+
+  bot.callbackQuery("event_del_abort", async (ctx) => {
+    await ctx.answerCallbackQuery("Dibatalkan.");
+  });
+
+  // ── Teks masuk — cek state pembuatan event ─────────────────────────────────
+  bot.on("message:text", async (ctx, next) => {
+    const chatId = ctx.chat.id.toString();
+    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) { await next(); return; }
+
+    const text = ctx.message.text.trim();
+    if (text.startsWith("/")) { await next(); return; }
+
+    const raw = await redis.get(EVENT_CREATE_KEY(chatId));
+    if (raw === null) { await next(); return; }
+
+    if (text === "/batal" || text === "batal") {
+      await redis.del(EVENT_CREATE_KEY(chatId));
+      await ctx.reply("😊 Pembuatan event dibatalkan.");
+      return;
+    }
+
+    const state = JSON.parse(raw) as EventCreateState & { endAtStr?: string };
+
+    if (state.step === "name") {
+      if (text.length < 3) { await ctx.reply("😊 Nama event minimal 3 karakter ya!"); return; }
+      const next2: EventCreateState = { ...state, step: "display_rate", name: text };
+      await redis.set(EVENT_CREATE_KEY(chatId), JSON.stringify(next2), "EX", EVENT_CREATE_TTL);
+      await ctx.reply(
+        `✏️ Harga tampil (markup %) — ini harga *coret palsu* yang ditampilkan ke user.\n` +
+        `Contoh: ketik \`14\` untuk +14% di atas modal.\n` +
+        `_(User akan melihat harga coret +14%, lalu "diskon" ke harga normal +3%)_`,
+        { parse_mode: "Markdown" },
+      );
+      return;
+    }
+
+    if (state.step === "display_rate") {
+      const rate = parseFloat(text.replace(",", "."));
+      if (isNaN(rate) || rate <= 0 || rate > 100) {
+        await ctx.reply("😊 Masukkan angka persentase yang valid (contoh: `14`).", { parse_mode: "Markdown" });
+        return;
+      }
+      const next2: EventCreateState = { ...state, step: "scope" as EventCreateState["step"], displayMarkupRate: rate / 100 };
+      await redis.set(EVENT_CREATE_KEY(chatId), JSON.stringify(next2), "EX", EVENT_CREATE_TTL);
+      const keyboard = {
+        inline_keyboard: [[
+          { text: "🌐 Semua Game", callback_data: "event_scope:all" },
+          { text: "🎮 Satu Game",  callback_data: "event_scope:brand" },
+        ]],
+      };
+      await ctx.reply("🎮 Event berlaku untuk:", { reply_markup: keyboard });
+      return;
+    }
+
+    if (state.step === "scope_value") {
+      const next2: EventCreateState = { ...state, step: "end_date", scope: "BRAND", scopeValue: text };
+      await redis.set(EVENT_CREATE_KEY(chatId), JSON.stringify(next2), "EX", EVENT_CREATE_TTL);
+      await ctx.reply(
+        "📅 Tanggal berakhir event? Format: `DD/MM/YYYY`\nAtau ketik `skip` untuk stop manual.",
+        { parse_mode: "Markdown" },
+      );
+      return;
+    }
+
+    if (state.step === "end_date") {
+      let endAtStr: string | undefined;
+      if (text.toLowerCase() !== "skip") {
+        // Validasi format DD/MM/YYYY
+        const parts = text.split("/");
+        if (parts.length !== 3 || parts.some((p) => isNaN(parseInt(p)))) {
+          await ctx.reply("😊 Format tanggal tidak valid. Ketik `DD/MM/YYYY` atau `skip`.", { parse_mode: "Markdown" });
+          return;
+        }
+        endAtStr = text;
+      }
+
+      const displayPct = Math.round((state.displayMarkupRate ?? 0) * 100);
+      const scopeLabel = state.scope === "ALL" ? "Semua Game" : `Game: ${state.scopeValue}`;
+      const endLabel = endAtStr !== undefined ? endAtStr : "Manual stop";
+
+      const finalState = { ...state, step: "confirm" as EventCreateState["step"], endAtStr };
+      await redis.set(EVENT_CREATE_KEY(chatId), JSON.stringify(finalState), "EX", EVENT_CREATE_TTL);
+
+      const keyboard = {
+        inline_keyboard: [[
+          { text: "✅ Buat & Aktifkan", callback_data: "event_confirm:active" },
+          { text: "📋 Buat (belum aktif)", callback_data: "event_confirm:inactive" },
+        ], [
+          { text: "❌ Batal", callback_data: "event_confirm:cancel" },
+        ]],
+      };
+      await ctx.reply(
+        `📋 *Konfirmasi Event Baru:*\n\n` +
+        `Nama      : ${state.name}\n` +
+        `Tampil    : +${displayPct}% (harga coret)\n` +
+        `Bayar     : +3% (margin event)\n` +
+        `Scope     : ${scopeLabel}\n` +
+        `Berakhir  : ${endLabel}`,
+        { parse_mode: "Markdown", reply_markup: keyboard },
+      );
+    }
+  });
 }
 
 // ─── /poin ────────────────────────────────────────────────────────────────────

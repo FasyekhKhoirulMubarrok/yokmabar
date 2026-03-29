@@ -16,6 +16,7 @@ import { config } from "../../config.js";
 import { stripBrandPrefix } from "../../utils/formatter.js";
 import { checkGameId, getInquirySku } from "../../services/supplier.service.js";
 import { type Product } from "@prisma/client";
+import { getActiveEvent, applyEventPricing } from "../../services/event.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,9 @@ interface WaState {
   inquiryUsername?: string | null;
   userId?: string;
   pointDiscount?: number;
+  effectivePrice?: number;      // harga setelah event pricing
+  strikethroughPrice?: number;  // harga coret (untuk display)
+  discountPercent?: number;     // persentase diskon
 }
 
 // ─── Redis State ──────────────────────────────────────────────────────────────
@@ -133,16 +137,25 @@ async function sendGameMenu(phone: string): Promise<void> {
 }
 
 async function sendNominalMenu(phone: string, brand: string, products: Product[]): Promise<void> {
-  const items = products
-    .slice(0, 15)
-    .map((p) => `${p.itemName} — ${formatRupiah(p.price)}`);
+  const activeEvent = await getActiveEvent(brand);
+  const list = products.slice(0, 15);
+
+  const items = list.map((p) => {
+    const clean = stripBrandPrefix(brand, p.itemName);
+    if (activeEvent !== null && p.basePrice > 0) {
+      const ep = applyEventPricing(p.basePrice, activeEvent);
+      return `${clean} — ~${formatRupiah(ep.strikethroughPrice)}~ → *${formatRupiah(ep.actualPrice)}* 🔥 -${ep.discountPercent}%`;
+    }
+    return `${clean} — ${formatRupiah(p.price)}`;
+  });
+
   const text =
     `💎 *Pilih nominal ${brand}:*\n\n` +
     numberedList(items) +
     `\n0. ❌ Batal` +
     footer("Balas dengan angka nominal pilihanmu");
   await sendWhatsApp(phone, text);
-  await setState(phone, { step: "select_nominal", selectedBrand: brand, products: products.slice(0, 15) });
+  await setState(phone, { step: "select_nominal", selectedBrand: brand, products: list });
 }
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────
@@ -425,6 +438,13 @@ async function handleSelectNominal(phone: string, text: string, state: WaState):
   const needsServer = GAMES_NEED_SERVER_ID.has(product.brand);
   const isValorant = product.brand.toLowerCase() === "valorant";
 
+  // Hitung effective price berdasarkan event aktif
+  const activeEvent = await getActiveEvent(product.brand);
+  const ep = activeEvent !== null && product.basePrice > 0
+    ? applyEventPricing(product.basePrice, activeEvent)
+    : null;
+  const effectivePrice = ep !== null ? ep.actualPrice : product.price;
+
   const userIdPrompt = isValorant
     ? `🆔 Masukkan *Username Valorant* kamu:` + footer("Format: username#tag (contoh: NamaKamu#1234)")
     : `🆔 Masukkan *User ID* ${product.brand} kamu:` + footer("Contoh: 123456789");
@@ -435,6 +455,8 @@ async function handleSelectNominal(phone: string, text: string, state: WaState):
     step: "input_userid",
     selectedBrand: product.brand,
     selectedItemCode: product.itemCode,
+    effectivePrice,
+    ...(ep !== null && { strikethroughPrice: ep.strikethroughPrice, discountPercent: ep.discountPercent }),
     ...(state.products !== undefined && { products: state.products }),
   });
 }
@@ -494,11 +516,16 @@ async function showConfirmation(phone: string, state: WaState): Promise<void> {
     ? `\n✅ Username : ${state.inquiryUsername}`
     : "";
 
+  const displayPrice = state.effectivePrice ?? product.price;
+  const hargaLine = state.strikethroughPrice !== undefined
+    ? `Harga    : ~${formatRupiah(state.strikethroughPrice)}~ → *${formatRupiah(displayPrice)}* 🔥 -${state.discountPercent ?? 0}%`
+    : `Harga    : ${formatRupiah(displayPrice)}`;
+
   const text =
     `📋 *Konfirmasi Order*\n\n` +
     `Game     : ${product.brand}\n` +
     `Item     : ${stripBrandPrefix(product.brand, product.itemName)}\n` +
-    `Harga    : ${formatRupiah(product.price)}\n` +
+    `${hargaLine}\n` +
     `${idLine}${verifiedLine}\n\n` +
     `1. ✅ Konfirmasi\n2. ❌ Batal` +
     footer("Balas 1 untuk konfirmasi atau 2 untuk batal");
@@ -563,7 +590,8 @@ async function sendPaymentMenu(phone: string, state: WaState): Promise<void> {
   if (product === undefined) { await sendMainMenu(phone); return; }
 
   const discount = state.pointDiscount ?? 0;
-  const finalAmount = Math.max(product.price - discount, 0);
+  const basePrice = state.effectivePrice ?? product.price;
+  const finalAmount = Math.max(basePrice - discount, 0);
 
   const text =
     `💳 *Pembayaran QRIS*\n` +
@@ -599,7 +627,7 @@ async function handleSelectPayment(phone: string, text: string, state: WaState):
   if (product === undefined) { await sendMainMenu(phone); return; }
 
   const userId = state.userId ?? (await getOrCreateUser(phone));
-  const finalAmount = Math.max(product.price - (state.pointDiscount ?? 0), 0);
+  const finalAmount = Math.max((state.effectivePrice ?? product.price) - (state.pointDiscount ?? 0), 0);
 
   await sendWhatsApp(phone, `⏳ Membuat tagihan, sebentar ya...`);
 

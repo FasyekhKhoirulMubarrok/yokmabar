@@ -17,6 +17,7 @@ import {
   handleUserFeedbackReplyButton,
   handleUserFeedbackReplyModalSubmit,
 } from "./commands/feedback.js";
+import { handleAdminCommand } from "./commands/admin.js";
 import { recordServerReferral } from "../../services/referral.service.js";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
@@ -78,6 +79,8 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleHelpCommand(interaction);
       } else if (interaction.commandName === "feedback") {
         await handleFeedbackCommand(interaction);
+      } else if (interaction.commandName === "admin") {
+        await handleAdminCommand(interaction);
       }
       return;
     }

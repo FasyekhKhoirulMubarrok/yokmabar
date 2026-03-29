@@ -41,7 +41,8 @@ const EnvSchema = z.object({
   REFERRAL_BONUS_POINTS: z.coerce.number().default(50),
 
   // ── Markup Harga ──────────────────────────────────────────────────────────
-  PRICE_MARKUP_RATE: z.coerce.number().default(0.03), // 3% default
+  PRICE_MARKUP_RATE: z.coerce.number().default(0.05), // 5% harga normal
+  PRICE_EVENT_RATE:  z.coerce.number().default(0.03), // 3% harga saat event
 });
 
 export type Env = z.infer<typeof EnvSchema>;

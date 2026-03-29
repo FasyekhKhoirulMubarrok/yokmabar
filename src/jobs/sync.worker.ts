@@ -121,6 +121,7 @@ async function upsertProducts(products: DigiflazzProduct[]): Promise<number> {
             category: p.category,
             itemCode: p.buyer_sku_code,
             itemName: p.product_name,
+            basePrice: p.price,
             price: applyMarkup(p.price),
             isActive: isActiveProduct(p),
             isPopular: isPopularBrand(p.brand),
@@ -128,6 +129,7 @@ async function upsertProducts(products: DigiflazzProduct[]): Promise<number> {
           },
           update: {
             itemName: p.product_name,
+            basePrice: p.price,
             price: applyMarkup(p.price),
             isActive: isActiveProduct(p),
             isPopular: isPopularBrand(p.brand),
