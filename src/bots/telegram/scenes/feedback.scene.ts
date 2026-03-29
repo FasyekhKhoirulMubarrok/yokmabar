@@ -32,19 +32,44 @@ export async function feedbackScene(
   await ctx.reply(
     `📝 <b>Kirim Feedback</b>\n\n` +
     `Ketik pesan kamu — bisa berupa kritik, saran, atau laporan masalah.\n` +
-    `<i>Kirim /batal untuk membatalkan.</i>`,
+    `<i>Hanya teks yang diterima. Kirim /batal untuk membatalkan.</i>`,
     { parse_mode: "HTML" },
   );
 
-  const msgCtx = await conversation.waitFor("message:text", {
-    otherwise: (c) => c.reply("😊 Kirim pesan teks ya!"),
-  });
+  let message = "";
+  while (true) {
+    const msgCtx = await conversation.waitFor("message", {
+      otherwise: (c) => c.reply("😊 Hanya pesan teks yang diterima ya!"),
+    });
 
-  const message = msgCtx.message.text.trim();
+    // Tolak non-teks (foto, stiker, dokumen, dll)
+    if (!("text" in msgCtx.message) || msgCtx.message.text === undefined) {
+      await ctx.reply(
+        `❌ Hanya teks yang bisa dikirim sebagai feedback.\n` +
+        `Ketik pesan kamu dalam bentuk teks ya!`,
+      );
+      continue;
+    }
 
-  if (message === "/batal") {
-    await ctx.reply("😊 Feedback dibatalkan.");
-    return;
+    const raw = msgCtx.message.text.trim();
+
+    if (raw === "/batal") {
+      await ctx.reply("😊 Feedback dibatalkan.");
+      return;
+    }
+
+    if (raw.length < 10) {
+      await ctx.reply("😊 Pesan terlalu singkat. Minimal 10 karakter ya — ceritakan lebih detail!");
+      continue;
+    }
+
+    if (raw.length > 1000) {
+      await ctx.reply(`😊 Pesan terlalu panjang (${raw.length}/1000 karakter). Ringkas sedikit ya!`);
+      continue;
+    }
+
+    message = raw;
+    break;
   }
 
   const userId = await conversation.external(() =>

@@ -351,38 +351,52 @@ export async function notifyUserFeedbackReply(
   ticketId: string,
   replyMessage: string,
 ): Promise<void> {
-  const plainText =
-    `💬 Balasan Admin — Tiket #${ticketId}\n\n` +
-    `${replyMessage}\n\n` +
-    `Balas: reply ${ticketId} pesan kamu\n` +
-    `Tutup: tutup ${ticketId}`;
-
-  const htmlText =
-    `💬 <b>Balasan Admin — Tiket #${ticketId}</b>\n\n` +
-    `${replyMessage}`;
-
   switch (platform) {
     case "TELEGRAM":
-      await getTelegramApi().sendMessage(platformUserId, htmlText, {
-        parse_mode: "HTML",
-        reply_markup: {
-          inline_keyboard: [[
-            { text: "💬 Balas", callback_data: `fb_user_reply:${ticketId}` },
-          ]],
+      await getTelegramApi().sendMessage(
+        platformUserId,
+        `📬 <b>Balasan Admin</b>\n` +
+        `<code>Tiket #${ticketId}</code>\n` +
+        `─────────────────────\n` +
+        `${replyMessage}\n` +
+        `─────────────────────\n` +
+        `<i>Tap tombol di bawah untuk membalas.</i>`,
+        {
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [[
+              { text: "💬 Balas", callback_data: `fb_user_reply:${ticketId}` },
+            ]],
+          },
         },
-      });
+      );
       break;
     case "DISCORD":
-      await sendDiscordDm(platformUserId, plainText, [{
-        type: 1,
-        components: [
-          { type: 2, style: 1, label: "💬 Balas", custom_id: `fb_user_reply|${ticketId}` },
-        ],
-      }]);
+      await sendDiscordDm(
+        platformUserId,
+        `📬 **Balasan Admin**\n` +
+        `\`Tiket #${ticketId}\`\n` +
+        `─────────────────────\n` +
+        `${replyMessage}\n` +
+        `─────────────────────\n` +
+        `*Klik tombol di bawah untuk membalas.*`,
+        [{
+          type: 1,
+          components: [
+            { type: 2, style: 1, label: "💬 Balas", custom_id: `fb_user_reply|${ticketId}` },
+          ],
+        }],
+      );
       break;
     case "WHATSAPP":
-      await sendWhatsApp(platformUserId,
-        `💬 Balasan Admin — Tiket #${ticketId}\n\n${replyMessage}\n\nBalas: reply ${ticketId} pesan kamu`
+      await sendWhatsApp(
+        platformUserId,
+        `📬 *Balasan Admin*\n` +
+        `Tiket: *#${ticketId}*\n` +
+        `─────────────────────\n` +
+        `${replyMessage}\n` +
+        `─────────────────────\n` +
+        `Balas: reply ${ticketId} pesan kamu`,
       );
       break;
   }
