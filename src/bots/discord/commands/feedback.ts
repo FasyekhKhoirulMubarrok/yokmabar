@@ -11,8 +11,8 @@ import {
   type ModalActionRowComponentBuilder,
 } from "discord.js";
 import { db } from "../../../db/client.js";
-import { createFeedback, addAdminReply, getFeedbackWithUser } from "../../../services/feedback.service.js";
-import { notifyAdminFeedback, notifyUserFeedbackReply } from "../../../services/notification.service.js";
+import { createFeedback, addAdminReply, addUserReply, closeFeedback, getFeedbackWithUser } from "../../../services/feedback.service.js";
+import { notifyAdminFeedback, notifyAdminFeedbackUserReply, notifyUserFeedbackReply, notifyUserFeedbackClosed } from "../../../services/notification.service.js";
 
 // ─── Slash Command Definition ─────────────────────────────────────────────────
 
@@ -116,7 +116,6 @@ export async function handleAdminFeedbackReplyButton(
 export async function handleAdminFeedbackReplyModalSubmit(
   interaction: ModalSubmitInteraction,
 ): Promise<void> {
-  // customId: "fb_admin_reply_modal|FB-XXXXX"
   const ticketId = interaction.customId.split("|")[1] ?? "";
   const replyMessage = interaction.fields.getTextInputValue("admin_reply_message").trim();
 
@@ -124,24 +123,105 @@ export async function handleAdminFeedbackReplyModalSubmit(
 
   try {
     const feedback = await getFeedbackWithUser(ticketId);
-    if (feedback === null) {
-      await interaction.editReply(`😅 Tiket \`#${ticketId}\` tidak ditemukan.`);
-      return;
-    }
+    if (feedback === null) { await interaction.editReply(`😅 Tiket \`#${ticketId}\` tidak ditemukan.`); return; }
 
     await addAdminReply(ticketId, replyMessage);
-    await notifyUserFeedbackReply(
-      feedback.user.platform,
-      feedback.user.platformUserId,
-      ticketId,
-      replyMessage,
-    );
-
-    await interaction.editReply(
-      `✅ Balasan untuk **#${ticketId}** berhasil dikirim ke ${feedback.user.platform}!`,
-    );
+    await notifyUserFeedbackReply(feedback.user.platform, feedback.user.platformUserId, ticketId, replyMessage);
+    await interaction.editReply(`✅ Balasan untuk **#${ticketId}** berhasil dikirim ke ${feedback.user.platform}!`);
   } catch (err) {
     console.error("[discord-admin] feedback reply error:", err);
     await interaction.editReply("😅 Gagal mengirim balasan. Coba lagi ya!");
+  }
+}
+
+// ─── Admin: Tutup Tiket ───────────────────────────────────────────────────────
+
+export async function handleAdminCloseFeedbackButton(
+  interaction: ButtonInteraction,
+): Promise<void> {
+  const ticketId = interaction.customId.split("|")[1] ?? "";
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const feedback = await getFeedbackWithUser(ticketId);
+    if (feedback === null) { await interaction.editReply(`😅 Tiket \`#${ticketId}\` tidak ditemukan.`); return; }
+    if (feedback.status === "CLOSED") { await interaction.editReply(`😊 Tiket \`#${ticketId}\` sudah ditutup sebelumnya.`); return; }
+
+    await closeFeedback(ticketId);
+    await notifyUserFeedbackClosed(feedback.user.platform, feedback.user.platformUserId, ticketId);
+    await interaction.editReply(`✅ Tiket **#${ticketId}** ditutup dan user sudah dinotifikasi.`);
+  } catch (err) {
+    console.error("[discord-admin] close feedback error:", err);
+    await interaction.editReply("😅 Gagal menutup tiket. Coba lagi ya!");
+  }
+}
+
+// ─── User: Klik Tombol Balas dari DM ─────────────────────────────────────────
+
+export async function handleUserFeedbackReplyButton(
+  interaction: ButtonInteraction,
+): Promise<void> {
+  const ticketId = interaction.customId.split("|")[1] ?? "";
+
+  const modal = new ModalBuilder()
+    .setCustomId(`fb_user_reply_modal|${ticketId}`)
+    .setTitle(`Balas Tiket #${ticketId}`);
+
+  const replyInput = new TextInputBuilder()
+    .setCustomId("user_reply_message")
+    .setLabel(`Pesan balasan kamu`)
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true)
+    .setMinLength(1)
+    .setMaxLength(1000);
+
+  const row = new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(replyInput);
+  modal.addComponents(row);
+
+  await interaction.showModal(modal);
+}
+
+// ─── User: Modal Submit Balasan ───────────────────────────────────────────────
+
+export async function handleUserFeedbackReplyModalSubmit(
+  interaction: ModalSubmitInteraction,
+): Promise<void> {
+  const ticketId = interaction.customId.split("|")[1] ?? "";
+  const replyMessage = interaction.fields.getTextInputValue("user_reply_message").trim();
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const feedback = await getFeedbackWithUser(ticketId);
+    if (feedback === null) { await interaction.editReply(`😅 Tiket \`#${ticketId}\` tidak ditemukan.`); return; }
+    if (feedback.status === "CLOSED") { await interaction.editReply(`😊 Tiket **#${ticketId}** sudah ditutup. Buka tiket baru dengan \`/feedback\`.`); return; }
+
+    await addUserReply(ticketId, replyMessage);
+    await notifyAdminFeedbackUserReply(ticketId, feedback.user.platform, feedback.user.username ?? null, replyMessage);
+    await interaction.editReply(`✅ Balasan kamu untuk tiket **#${ticketId}** sudah dikirim ke admin!`);
+  } catch (err) {
+    console.error("[discord-user] feedback reply error:", err);
+    await interaction.editReply("😅 Gagal mengirim balasan. Coba lagi ya!");
+  }
+}
+
+// ─── User: Tutup Tiket dari DM ────────────────────────────────────────────────
+
+export async function handleUserCloseFeedbackButton(
+  interaction: ButtonInteraction,
+): Promise<void> {
+  const ticketId = interaction.customId.split("|")[1] ?? "";
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const feedback = await getFeedbackWithUser(ticketId);
+    if (feedback === null) { await interaction.editReply(`😅 Tiket \`#${ticketId}\` tidak ditemukan.`); return; }
+    if (feedback.status === "CLOSED") { await interaction.editReply(`😊 Tiket **#${ticketId}** sudah ditutup.`); return; }
+
+    await closeFeedback(ticketId);
+    await interaction.editReply(`✅ Tiket **#${ticketId}** berhasil ditutup. Terima kasih! 🙏`);
+  } catch (err) {
+    console.error("[discord-user] close feedback error:", err);
+    await interaction.editReply("😅 Gagal menutup tiket. Coba lagi ya!");
   }
 }

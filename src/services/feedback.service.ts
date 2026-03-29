@@ -67,3 +67,45 @@ export async function addAdminReply(
 
   return reply;
 }
+
+export async function addUserReply(
+  ticketId: string,
+  message: string,
+): Promise<FeedbackReply> {
+  const feedback = await db.feedback.findUnique({ where: { ticketId } });
+  if (feedback === null) throw new Error(`Tiket ${ticketId} tidak ditemukan`);
+  if (feedback.status === "CLOSED") throw new Error(`Tiket ${ticketId} sudah ditutup`);
+
+  const reply = await db.feedbackReply.create({
+    data: { feedbackId: feedback.id, message, fromAdmin: false },
+  });
+
+  await db.feedback.update({
+    where: { id: feedback.id },
+    data: { status: "OPEN" },
+  });
+
+  return reply;
+}
+
+export async function closeFeedback(ticketId: string): Promise<Feedback | null> {
+  const feedback = await db.feedback.findUnique({ where: { ticketId } });
+  if (feedback === null || feedback.status === "CLOSED") return null;
+
+  return db.feedback.update({
+    where: { id: feedback.id },
+    data: { status: "CLOSED" },
+  });
+}
+
+// Ambil tiket yang tidak ada aktivitas selama X jam (untuk auto-close)
+export async function getInactiveFeedbacks(hours: number): Promise<FeedbackWithUser[]> {
+  const threshold = new Date(Date.now() - hours * 60 * 60 * 1000);
+  return db.feedback.findMany({
+    where: {
+      status: { not: "CLOSED" },
+      updatedAt: { lt: threshold },
+    },
+    include: { user: true, replies: { orderBy: { createdAt: "asc" } } },
+  });
+}

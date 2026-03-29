@@ -21,6 +21,11 @@ import {
   registerBalanceSchedule,
   closeBalanceWorker,
 } from "./jobs/balance.worker.js";
+import {
+  feedbackWorker,
+  registerFeedbackSchedule,
+  closeFeedbackWorker,
+} from "./jobs/feedback.worker.js";
 import { closeQueues } from "./jobs/queue.js";
 
 // ─── Mount WhatsApp router ────────────────────────────────────────────────────
@@ -56,6 +61,7 @@ async function shutdown(signal: string): Promise<void> {
       closeExpireWorker(),
       closeSyncWorker(),
       closeBalanceWorker(),
+      closeFeedbackWorker(),
     ]);
     await closeQueues();
     await Promise.all([stopTelegramBot(), stopDiscordBot()]);
@@ -84,6 +90,7 @@ async function main(): Promise<void> {
   logger.info(`[startup] Expire worker: ${expireWorker.isRunning() ? "running" : "idle"}`);
   logger.info(`[startup] Sync worker: ${syncWorker.isRunning() ? "running" : "idle"}`);
   logger.info(`[startup] Balance worker: ${balanceWorker.isRunning() ? "running" : "idle"}`);
+  logger.info(`[startup] Feedback worker: ${feedbackWorker.isRunning() ? "running" : "idle"}`);
 
   // Register scheduled jobs (BullMQ repeat)
   await registerSyncSchedules();
@@ -91,6 +98,9 @@ async function main(): Promise<void> {
 
   await registerBalanceSchedule();
   logger.info("[startup] Balance schedule registered.");
+
+  await registerFeedbackSchedule();
+  logger.info("[startup] Feedback auto-close schedule registered.");
 
   // Bots
   try {

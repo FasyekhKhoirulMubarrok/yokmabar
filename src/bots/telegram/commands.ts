@@ -3,8 +3,8 @@ import { db } from "../../db/client.js";
 import { redis } from "../../db/redis.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { getPointSummary } from "../../services/point.service.js";
-import { getFeedbackWithUser, addAdminReply, normalizeTicketId } from "../../services/feedback.service.js";
-import { notifyUserFeedbackReply } from "../../services/notification.service.js";
+import { getFeedbackWithUser, addAdminReply, addUserReply, closeFeedback, normalizeTicketId } from "../../services/feedback.service.js";
+import { notifyUserFeedbackReply, notifyAdminFeedbackUserReply, notifyUserFeedbackClosed } from "../../services/notification.service.js";
 import { config } from "../../config.js";
 import { type BotContext } from "./scenes/topup.scene.js";
 
@@ -182,72 +182,112 @@ export function registerFeedbackCommand(bot: Bot<BotContext>): void {
 const ADMIN_REPLY_KEY = (chatId: string) => `tg:admin_reply:${chatId}`;
 
 export function registerAdminFeedbackReplyHandler(bot: Bot<BotContext>): void {
-  // Klik tombol [💬 Balas] di notifikasi admin
+  // ── Admin: klik [💬 Balas] ──────────────────────────────────────────────────
   bot.callbackQuery(/^fb_reply:.+$/, async (ctx) => {
     const chatId = ctx.chat?.id.toString();
     if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) {
       await ctx.answerCallbackQuery("Hanya admin yang bisa membalas.");
       return;
     }
-
     const ticketId = ctx.callbackQuery.data.replace("fb_reply:", "");
     await ctx.answerCallbackQuery();
     await redis.set(ADMIN_REPLY_KEY(chatId), ticketId, "EX", 300);
-
     await ctx.reply(
-      `✏️ Ketik balasan untuk tiket <b>#${ticketId}</b>:\n` +
-      `<i>Kirim /batal untuk membatalkan.</i>`,
+      `✏️ Ketik balasan untuk tiket <b>#${ticketId}</b>:\n<i>Kirim /batal untuk membatalkan.</i>`,
       { parse_mode: "HTML" },
     );
   });
 
-  // Pesan teks dari admin chat — cek apakah ada pending reply
+  // ── Admin: klik [✅ Tutup Tiket] ────────────────────────────────────────────
+  bot.callbackQuery(/^fb_close:.+$/, async (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) {
+      await ctx.answerCallbackQuery("Hanya admin yang bisa menutup tiket.");
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    const ticketId = ctx.callbackQuery.data.replace("fb_close:", "");
+    await handleCloseFeedback(ctx, ticketId, true);
+  });
+
+  // ── User: klik [💬 Balas] dari notifikasi admin ─────────────────────────────
+  bot.callbackQuery(/^fb_user_reply:.+$/, async (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    if (chatId === undefined) return;
+    const ticketId = ctx.callbackQuery.data.replace("fb_user_reply:", "");
+    await ctx.answerCallbackQuery();
+    await redis.set(`tg:user_reply:${chatId}`, ticketId, "EX", 300);
+    await ctx.reply(
+      `✏️ Ketik balasan untuk tiket <b>#${ticketId}</b>:\n<i>Kirim /batal untuk membatalkan.</i>`,
+      { parse_mode: "HTML" },
+    );
+  });
+
+  // ── User: klik [✅ Tutup Tiket] ─────────────────────────────────────────────
+  bot.callbackQuery(/^fb_user_close:.+$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const ticketId = ctx.callbackQuery.data.replace("fb_user_close:", "");
+    await handleCloseFeedback(ctx, ticketId, false);
+  });
+
+  // ── Pesan teks — cek pending reply (admin atau user) ────────────────────────
   bot.on("message:text", async (ctx, next) => {
     const chatId = ctx.chat.id.toString();
-    if (chatId !== config.TELEGRAM_ADMIN_CHAT_ID) {
-      await next();
-      return;
-    }
+    const text = ctx.message.text;
 
-    const pendingTicket = await redis.get(ADMIN_REPLY_KEY(chatId));
-    if (pendingTicket === null) {
-      await next();
-      return;
-    }
+    if (text.startsWith("/")) { await next(); return; }
 
-    const message = ctx.message.text;
+    const isAdmin = chatId === config.TELEGRAM_ADMIN_CHAT_ID;
+    const pendingKey = isAdmin ? ADMIN_REPLY_KEY(chatId) : `tg:user_reply:${chatId}`;
+    const pendingTicket = await redis.get(pendingKey);
 
-    if (message.startsWith("/")) {
-      await next();
-      return;
-    }
+    if (pendingTicket === null) { await next(); return; }
 
-    await redis.del(ADMIN_REPLY_KEY(chatId));
+    await redis.del(pendingKey);
 
     try {
       const feedback = await getFeedbackWithUser(pendingTicket);
-      if (feedback === null) {
-        await ctx.reply(`😅 Tiket #${pendingTicket} tidak ditemukan.`);
+      if (feedback === null) { await ctx.reply(`😅 Tiket #${pendingTicket} tidak ditemukan.`); return; }
+
+      if (feedback.status === "CLOSED") {
+        await ctx.reply(`😊 Tiket <b>#${pendingTicket}</b> sudah ditutup. Buka tiket baru dengan /feedback.`, { parse_mode: "HTML" });
         return;
       }
 
-      await addAdminReply(pendingTicket, message);
-      await notifyUserFeedbackReply(
-        feedback.user.platform,
-        feedback.user.platformUserId,
-        pendingTicket,
-        message,
-      );
-
-      await ctx.reply(
-        `✅ Balasan untuk <b>#${pendingTicket}</b> berhasil dikirim ke ${feedback.user.platform}!`,
-        { parse_mode: "HTML" },
-      );
+      if (isAdmin) {
+        await addAdminReply(pendingTicket, text);
+        await notifyUserFeedbackReply(feedback.user.platform, feedback.user.platformUserId, pendingTicket, text);
+        await ctx.reply(`✅ Balasan untuk <b>#${pendingTicket}</b> terkirim ke ${feedback.user.platform}!`, { parse_mode: "HTML" });
+      } else {
+        await addUserReply(pendingTicket, text);
+        await notifyAdminFeedbackUserReply(pendingTicket, feedback.user.platform, feedback.user.username ?? null, text);
+        await ctx.reply(`✅ Balasan kamu untuk tiket <b>#${pendingTicket}</b> sudah dikirim ke admin!`, { parse_mode: "HTML" });
+      }
     } catch (err) {
-      console.error("[telegram-admin] feedback reply error:", err);
+      console.error("[telegram] feedback reply error:", err);
       await ctx.reply("😅 Gagal mengirim balasan. Coba lagi ya!");
     }
   });
+}
+
+async function handleCloseFeedback(ctx: { reply: (text: string, opts?: object) => Promise<unknown> }, ticketId: string, isAdmin: boolean): Promise<void> {
+  try {
+    const feedback = await getFeedbackWithUser(ticketId);
+    if (feedback === null) { await ctx.reply(`😅 Tiket #${ticketId} tidak ditemukan.`); return; }
+    if (feedback.status === "CLOSED") { await ctx.reply(`😊 Tiket #${ticketId} sudah ditutup sebelumnya.`); return; }
+
+    await closeFeedback(ticketId);
+
+    if (isAdmin) {
+      await notifyUserFeedbackClosed(feedback.user.platform, feedback.user.platformUserId, ticketId);
+      await ctx.reply(`✅ Tiket <b>#${ticketId}</b> ditutup dan user sudah dinotifikasi.`, { parse_mode: "HTML" });
+    } else {
+      await ctx.reply(`✅ Tiket <b>#${ticketId}</b> berhasil ditutup. Terima kasih! 🙏`, { parse_mode: "HTML" });
+    }
+  } catch (err) {
+    console.error("[telegram] close feedback error:", err);
+    await ctx.reply("😅 Gagal menutup tiket. Coba lagi ya!");
+  }
 }
 
 // ─── /poin ────────────────────────────────────────────────────────────────────

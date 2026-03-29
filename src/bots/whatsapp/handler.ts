@@ -10,8 +10,8 @@ import { createOrder, setPaymentUrl } from "../../services/order.service.js";
 import { createInvoice } from "../../services/payment.service.js";
 import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
-import { createFeedback, addAdminReply, getFeedbackWithUser, normalizeTicketId } from "../../services/feedback.service.js";
-import { notifyAdminFeedback, notifyUserFeedbackReply } from "../../services/notification.service.js";
+import { createFeedback, addAdminReply, addUserReply, closeFeedback, getFeedbackWithUser, normalizeTicketId } from "../../services/feedback.service.js";
+import { notifyAdminFeedback, notifyAdminFeedbackUserReply, notifyUserFeedbackReply, notifyUserFeedbackClosed } from "../../services/notification.service.js";
 import { config } from "../../config.js";
 import { stripBrandPrefix } from "../../utils/formatter.js";
 import { checkGameId, getInquirySku } from "../../services/supplier.service.js";
@@ -154,15 +154,25 @@ export async function handleWhatsAppMessage(
   const text = message.trim();
   const state = await getState(phone);
 
-  // Admin reply: "reply FB-XXXXX pesan balasan"
-  if (phone === config.WHATSAPP_ADMIN_NUMBER) {
-    const adminReplyMatch = text.match(/^reply\s+(FB-\w+)\s+(.+)$/i);
-    if (adminReplyMatch !== null) {
-      const ticketId = normalizeTicketId(adminReplyMatch[1]!);
-      const replyMessage = adminReplyMatch[2]!.trim();
+  // Reply tiket: "reply FB-XXXXX pesan" — berlaku untuk admin dan user
+  const replyMatch = text.match(/^reply\s+(FB-\w+)\s+(.+)$/i);
+  if (replyMatch !== null) {
+    const ticketId = normalizeTicketId(replyMatch[1]!);
+    const replyMessage = replyMatch[2]!.trim();
+    if (phone === config.WHATSAPP_ADMIN_NUMBER) {
       await handleAdminWhatsAppReply(phone, ticketId, replyMessage);
-      return;
+    } else {
+      await handleUserWhatsAppReply(phone, ticketId, replyMessage);
     }
+    return;
+  }
+
+  // Tutup tiket: "tutup FB-XXXXX" — berlaku untuk admin dan user
+  const tutupMatch = text.match(/^tutup\s+(FB-\w+)$/i);
+  if (tutupMatch !== null) {
+    const ticketId = normalizeTicketId(tutupMatch[1]!);
+    await handleWhatsAppCloseFeedback(phone, ticketId, phone === config.WHATSAPP_ADMIN_NUMBER);
+    return;
   }
 
   // Kata kunci reset
@@ -280,23 +290,50 @@ async function handleFeedbackInput(phone: string, text: string): Promise<void> {
 async function handleAdminWhatsAppReply(phone: string, ticketId: string, replyMessage: string): Promise<void> {
   try {
     const feedback = await getFeedbackWithUser(ticketId);
-    if (feedback === null) {
-      await sendWhatsApp(phone, `😅 Tiket #${ticketId} tidak ditemukan.`);
-      return;
-    }
+    if (feedback === null) { await sendWhatsApp(phone, `😅 Tiket #${ticketId} tidak ditemukan.`); return; }
+    if (feedback.status === "CLOSED") { await sendWhatsApp(phone, `😊 Tiket #${ticketId} sudah ditutup.`); return; }
 
     await addAdminReply(ticketId, replyMessage);
-    await notifyUserFeedbackReply(
-      feedback.user.platform,
-      feedback.user.platformUserId,
-      ticketId,
-      replyMessage,
-    );
-
+    await notifyUserFeedbackReply(feedback.user.platform, feedback.user.platformUserId, ticketId, replyMessage);
     await sendWhatsApp(phone, `✅ Balasan untuk *#${ticketId}* berhasil dikirim ke ${feedback.user.platform}!`);
   } catch (err) {
     console.error("[whatsapp-admin] feedback reply error:", err);
     await sendWhatsApp(phone, `😅 Gagal mengirim balasan. Coba lagi ya!`);
+  }
+}
+
+async function handleUserWhatsAppReply(phone: string, ticketId: string, replyMessage: string): Promise<void> {
+  try {
+    const feedback = await getFeedbackWithUser(ticketId);
+    if (feedback === null) { await sendWhatsApp(phone, `😅 Tiket #${ticketId} tidak ditemukan.`); return; }
+    if (feedback.status === "CLOSED") { await sendWhatsApp(phone, `😊 Tiket #${ticketId} sudah ditutup. Buka tiket baru dengan ketik *menu* lalu pilih Kirim Feedback.`); return; }
+
+    await addUserReply(ticketId, replyMessage);
+    await notifyAdminFeedbackUserReply(ticketId, "WHATSAPP", phone, replyMessage);
+    await sendWhatsApp(phone, `✅ Balasan kamu untuk tiket *#${ticketId}* sudah dikirim ke admin!`);
+  } catch (err) {
+    console.error("[whatsapp-user] feedback reply error:", err);
+    await sendWhatsApp(phone, `😅 Gagal mengirim balasan. Coba lagi ya!`);
+  }
+}
+
+async function handleWhatsAppCloseFeedback(phone: string, ticketId: string, isAdmin: boolean): Promise<void> {
+  try {
+    const feedback = await getFeedbackWithUser(ticketId);
+    if (feedback === null) { await sendWhatsApp(phone, `😅 Tiket #${ticketId} tidak ditemukan.`); return; }
+    if (feedback.status === "CLOSED") { await sendWhatsApp(phone, `😊 Tiket #${ticketId} sudah ditutup sebelumnya.`); return; }
+
+    await closeFeedback(ticketId);
+
+    if (isAdmin) {
+      await notifyUserFeedbackClosed(feedback.user.platform, feedback.user.platformUserId, ticketId);
+      await sendWhatsApp(phone, `✅ Tiket *#${ticketId}* ditutup dan user sudah dinotifikasi.`);
+    } else {
+      await sendWhatsApp(phone, `✅ Tiket *#${ticketId}* berhasil ditutup. Terima kasih! 🙏`);
+    }
+  } catch (err) {
+    console.error("[whatsapp] close feedback error:", err);
+    await sendWhatsApp(phone, `😅 Gagal menutup tiket. Coba lagi ya!`);
   }
 }
 

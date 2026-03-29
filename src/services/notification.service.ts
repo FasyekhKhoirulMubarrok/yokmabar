@@ -66,16 +66,16 @@ async function sendWhatsApp(phone: string, text: string): Promise<void> {
 async function sendDiscordDm(
   discordUserId: string,
   content: string,
+  components?: object[],
 ): Promise<void> {
   const rest = getDiscordRest();
 
-  // Buat DM channel lalu kirim pesan
   const dmChannel = (await rest.post(Routes.userChannels(), {
     body: { recipient_id: discordUserId },
   })) as { id: string };
 
   await rest.post(Routes.channelMessages(dmChannel.id), {
-    body: { content },
+    body: { content, ...(components !== undefined && { components }) },
   });
 }
 
@@ -290,7 +290,8 @@ export async function notifyAdminFeedback(
     `Pesan    : ${message}\n` +
     `Waktu    : ${waktu}\n\n` +
     `Balas dengan klik tombol di bawah atau ketik:\n` +
-    `<code>/reply ${ticketId} [pesan balasan]</code>`;
+    `<code>/reply ${ticketId} [pesan balasan]</code>\n` +
+    `Tutup: <code>tutup ${ticketId}</code>`;
 
   const discordEmbed = {
     color: 0x00b4d8,
@@ -307,12 +308,10 @@ export async function notifyAdminFeedback(
 
   const discordComponents = [{
     type: 1,
-    components: [{
-      type: 2,
-      style: 1,
-      label: "💬 Balas",
-      custom_id: `fb_admin_reply|${ticketId}`,
-    }],
+    components: [
+      { type: 2, style: 1, label: "💬 Balas",       custom_id: `fb_admin_reply|${ticketId}` },
+      { type: 2, style: 4, label: "✅ Tutup Tiket", custom_id: `fb_admin_close|${ticketId}` },
+    ],
   }];
 
   const waText =
@@ -329,7 +328,10 @@ export async function notifyAdminFeedback(
     getTelegramApi().sendMessage(config.TELEGRAM_ADMIN_CHAT_ID, telegramText, {
       parse_mode: "HTML",
       reply_markup: {
-        inline_keyboard: [[{ text: "💬 Balas", callback_data: `fb_reply:${ticketId}` }]],
+        inline_keyboard: [[
+          { text: "💬 Balas",       callback_data: `fb_reply:${ticketId}` },
+          { text: "✅ Tutup Tiket", callback_data: `fb_close:${ticketId}` },
+        ]],
       },
     }),
     getDiscordRest().post(Routes.channelMessages(config.DISCORD_ADMIN_CHANNEL_ID), {
@@ -341,6 +343,7 @@ export async function notifyAdminFeedback(
 
 /**
  * Kirim balasan admin ke user di platform asal mereka.
+ * Sertakan tombol/instruksi untuk user bisa balas balik.
  */
 export async function notifyUserFeedbackReply(
   platform: Platform,
@@ -348,10 +351,121 @@ export async function notifyUserFeedbackReply(
   ticketId: string,
   replyMessage: string,
 ): Promise<void> {
-  const text =
-    `💬 <b>Balasan Admin — Tiket #${ticketId}</b>\n\n` +
+  const plainText =
+    `💬 Balasan Admin — Tiket #${ticketId}\n\n` +
     `${replyMessage}\n\n` +
-    `<i>Kamu bisa kirim feedback lagi kapan saja lewat /feedback</i>`;
+    `Balas: reply ${ticketId} pesan kamu\n` +
+    `Tutup: tutup ${ticketId}`;
+
+  const htmlText =
+    `💬 <b>Balasan Admin — Tiket #${ticketId}</b>\n\n` +
+    `${replyMessage}`;
+
+  switch (platform) {
+    case "TELEGRAM":
+      await getTelegramApi().sendMessage(platformUserId, htmlText, {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "💬 Balas", callback_data: `fb_user_reply:${ticketId}` },
+            { text: "✅ Tutup Tiket", callback_data: `fb_user_close:${ticketId}` },
+          ]],
+        },
+      });
+      break;
+    case "DISCORD":
+      await sendDiscordDm(platformUserId, plainText, [{
+        type: 1,
+        components: [
+          { type: 2, style: 1, label: "💬 Balas", custom_id: `fb_user_reply|${ticketId}` },
+          { type: 2, style: 3, label: "✅ Tutup Tiket", custom_id: `fb_user_close|${ticketId}` },
+        ],
+      }]);
+      break;
+    case "WHATSAPP":
+      await sendWhatsApp(platformUserId, plainText);
+      break;
+  }
+}
+
+/**
+ * Notif semua admin saat user membalas tiket.
+ */
+export async function notifyAdminFeedbackUserReply(
+  ticketId: string,
+  platform: Platform,
+  username: string | null,
+  message: string,
+): Promise<void> {
+  const waktu = formatDateTime(new Date());
+  const userLabel = username !== null ? `@${username}` : `[${platform}]`;
+
+  const telegramText =
+    `💬 <b>User Membalas</b>\n` +
+    `Tiket    : <b>#${ticketId}</b>\n` +
+    `Platform : ${platform}\n` +
+    `User     : ${userLabel}\n` +
+    `Pesan    : ${message}\n` +
+    `Waktu    : ${waktu}`;
+
+  const discordEmbed = {
+    color: 0x57f287,
+    title: "💬 User Membalas",
+    fields: [
+      { name: "Tiket",    value: `#${ticketId}`, inline: true },
+      { name: "Platform", value: platform,        inline: true },
+      { name: "User",     value: userLabel,       inline: true },
+      { name: "Pesan",    value: message,         inline: false },
+    ],
+    timestamp: new Date().toISOString(),
+    footer: { text: "YokMabar Admin" },
+  };
+
+  const discordComponents = [{
+    type: 1,
+    components: [
+      { type: 2, style: 1, label: "💬 Balas",       custom_id: `fb_admin_reply|${ticketId}` },
+      { type: 2, style: 4, label: "✅ Tutup Tiket", custom_id: `fb_admin_close|${ticketId}` },
+    ],
+  }];
+
+  const waText =
+    `💬 *User Membalas*\n` +
+    `Tiket : *#${ticketId}*\n` +
+    `User  : ${userLabel}\n` +
+    `Pesan : ${message}\n\n` +
+    `Balas: reply ${ticketId} pesan\n` +
+    `Tutup: tutup ${ticketId}`;
+
+  await Promise.allSettled([
+    getTelegramApi().sendMessage(config.TELEGRAM_ADMIN_CHAT_ID, telegramText, {
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "💬 Balas",       callback_data: `fb_reply:${ticketId}` },
+          { text: "✅ Tutup Tiket", callback_data: `fb_close:${ticketId}` },
+        ]],
+      },
+    }),
+    getDiscordRest().post(Routes.channelMessages(config.DISCORD_ADMIN_CHANNEL_ID), {
+      body: { embeds: [discordEmbed], components: discordComponents },
+    }),
+    sendWhatsApp(config.WHATSAPP_ADMIN_NUMBER, waText),
+  ]);
+}
+
+/**
+ * Notif user bahwa tiketnya telah ditutup.
+ */
+export async function notifyUserFeedbackClosed(
+  platform: Platform,
+  platformUserId: string,
+  ticketId: string,
+): Promise<void> {
+  const text =
+    `✅ Tiket <b>#${ticketId}</b> telah ditutup.\n` +
+    `Terima kasih sudah menghubungi YokMabar! 🙏\n` +
+    `Buka tiket baru kapan saja lewat /feedback`;
 
   await sendToUser(platform, platformUserId, text);
 }

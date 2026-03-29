@@ -13,6 +13,10 @@ import {
   handleFeedbackModalSubmit,
   handleAdminFeedbackReplyButton,
   handleAdminFeedbackReplyModalSubmit,
+  handleAdminCloseFeedbackButton,
+  handleUserFeedbackReplyButton,
+  handleUserFeedbackReplyModalSubmit,
+  handleUserCloseFeedbackButton,
 } from "./commands/feedback.js";
 import { recordServerReferral } from "../../services/referral.service.js";
 
@@ -87,6 +91,8 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleFeedbackModalSubmit(interaction);
       } else if (interaction.customId.startsWith("fb_admin_reply_modal|")) {
         await handleAdminFeedbackReplyModalSubmit(interaction);
+      } else if (interaction.customId.startsWith("fb_user_reply_modal|")) {
+        await handleUserFeedbackReplyModalSubmit(interaction);
       }
       return;
     }
@@ -100,6 +106,12 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleTopupButton(interaction);
       } else if (interaction.customId.startsWith("fb_admin_reply|")) {
         await handleAdminFeedbackReplyButton(interaction);
+      } else if (interaction.customId.startsWith("fb_admin_close|")) {
+        await handleAdminCloseFeedbackButton(interaction);
+      } else if (interaction.customId.startsWith("fb_user_reply|")) {
+        await handleUserFeedbackReplyButton(interaction);
+      } else if (interaction.customId.startsWith("fb_user_close|")) {
+        await handleUserCloseFeedbackButton(interaction);
       }
       return;
     }
