@@ -10,7 +10,8 @@ import { config } from "../../../config.js";
 
 export const helpCommand = new SlashCommandBuilder()
   .setName("help")
-  .setDescription("Panduan lengkap fitur YokMabar Bot");
+  .setDescription("Panduan lengkap fitur YokMabar Bot")
+  .setDMPermission(true);
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 

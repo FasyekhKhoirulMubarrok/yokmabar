@@ -12,7 +12,8 @@ import { buildInviteUrl, getReferralStats } from "../../../services/referral.ser
 
 export const referralCommand = new SlashCommandBuilder()
   .setName("referral")
-  .setDescription("Dapatkan link invite unik kamu dan lihat statistik referral!");
+  .setDescription("Dapatkan link invite unik kamu dan lihat statistik referral!")
+  .setDMPermission(true);
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 

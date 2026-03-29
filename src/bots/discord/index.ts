@@ -13,7 +13,7 @@ import { recordServerReferral } from "../../services/referral.service.js";
 // ─── Client ───────────────────────────────────────────────────────────────────
 
 export const discordClient = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
 });
 
 // ─── Ready ────────────────────────────────────────────────────────────────────

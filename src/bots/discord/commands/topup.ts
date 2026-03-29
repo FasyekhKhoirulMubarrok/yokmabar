@@ -47,6 +47,7 @@ function needsServerId(brand: string): boolean {
 export const topupCommand = new SlashCommandBuilder()
   .setName("topup")
   .setDescription("Top up game kamu langsung dari Discord!")
+  .setDMPermission(true)
   .addStringOption((opt) =>
     opt
       .setName("game")
@@ -273,8 +274,10 @@ export async function handleTopupModalSubmit(
     ? "🎉 Gratis pakai poin!"
     : "💳 Bayar dengan QRIS";
 
+  const pointsToRedeem = pointSummary.canRedeem ? pointSummary.maxRedeemablePoints : 0;
+
   const confirmButton = new ButtonBuilder()
-    .setCustomId(`pay|QRIS|${userId}|${product.itemCode}|${gameUserId}|${gameServerId ?? ""}`)
+    .setCustomId(`pay|QRIS|${userId}|${product.itemCode}|${gameUserId}|${gameServerId ?? ""}|${pointsToRedeem}`)
     .setLabel(confirmLabel)
     .setStyle(pointSummary.canRedeem && pointSummary.maxDiscount >= product.price ? ButtonStyle.Success : ButtonStyle.Primary);
 
@@ -302,13 +305,14 @@ export async function handleTopupButton(
     return;
   }
 
-  // Format: "pay|QRIS|{userId}|{itemCode}|{gameUserId}|{gameServerId}"
+  // Format: "pay|QRIS|{userId}|{itemCode}|{gameUserId}|{gameServerId}|{pointsToRedeem}"
   const parts = interaction.customId.split("|");
   const userId = parts[2];
   const itemCode = parts[3];
   const gameUserId = parts[4] ?? "";
   const gameServerIdRaw = parts[5] ?? "";
   const gameServerId = gameServerIdRaw !== "" ? gameServerIdRaw : null;
+  const pointsToRedeem = parseInt(parts[6] ?? "0", 10) || 0;
 
   await interaction.deferUpdate();
 
@@ -324,7 +328,18 @@ export async function handleTopupButton(
     return;
   }
 
-  const finalAmount = product.price;
+  let pointDiscount = 0;
+  if (pointsToRedeem > 0) {
+    try {
+      pointDiscount = await redeemPoints(userId, pointsToRedeem);
+    } catch (err) {
+      console.error("[discord] redeemPoints error:", err);
+      await interaction.editReply({ content: "😅 Gagal menukar poin. Coba lagi dalam beberapa menit ya!", embeds: [], components: [] });
+      return;
+    }
+  }
+
+  const finalAmount = Math.max(product.price - pointDiscount, 0);
 
   // Buat order + invoice
   let order;

@@ -414,17 +414,24 @@ export async function topUpScene(
   // ── Step 7: Buat order + invoice (QRIS) ─────────────────────────────────────
   await ctx.reply("⏳ Memproses order...");
 
-  const order = await conversation.external(() =>
-    createOrder({
-      userId,
-      game: brand!,
-      gameUserId,
-      ...(gameServerId !== null && { gameServerId }),
-      itemCode: product.itemCode,
-      itemName: product.itemName,
-      amount: finalAmount,
-    }),
-  );
+  let order;
+  try {
+    order = await conversation.external(() =>
+      createOrder({
+        userId,
+        game: brand!,
+        gameUserId,
+        ...(gameServerId !== null && { gameServerId }),
+        itemCode: product.itemCode,
+        itemName: product.itemName,
+        amount: finalAmount,
+      }),
+    );
+  } catch (err) {
+    console.error("[telegram] createOrder error:", err);
+    await ctx.reply("😅 Ups, ada gangguan sebentar.\nCoba lagi dalam beberapa menit ya!");
+    return;
+  }
 
   // ── Jika poin menutupi full harga, bypass Duitku ────────────────────────────
   if (finalAmount === 0) {
