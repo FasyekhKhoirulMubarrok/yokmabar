@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, AuditLogEvent } from "discord.js";
+import { Client, GatewayIntentBits, Partials, Events, AuditLogEvent } from "discord.js";
 import { config } from "../../config.js";
 import {
   handleTopupAutocomplete,
@@ -14,6 +14,7 @@ import { recordServerReferral } from "../../services/referral.service.js";
 
 export const discordClient = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
+  partials: [Partials.Channel],
 });
 
 // ─── Ready ────────────────────────────────────────────────────────────────────
