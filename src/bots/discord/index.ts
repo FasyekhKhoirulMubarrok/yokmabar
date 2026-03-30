@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials, Events, AuditLogEvent } from "discord.js";
+import { Client, GatewayIntentBits, Partials, Events, AuditLogEvent, ActivityType } from "discord.js";
 import { config } from "../../config.js";
 import {
   handleTopupAutocomplete,
@@ -30,6 +30,8 @@ export const discordClient = new Client({
 
 discordClient.once(Events.ClientReady, (client) => {
   console.info(`[discord-bot] Bot ${client.user.tag} berjalan.`);
+
+  client.user.setActivity("/topup | yokmabar.com", { type: ActivityType.Listening });
 });
 
 // ─── Guild Create (Referral Tracking) ────────────────────────────────────────
