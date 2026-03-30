@@ -48,6 +48,14 @@ export async function handleHelpCommand(
         inline: false,
       },
       {
+        name: "📩 `/feedback`",
+        value:
+          "Kirim kritik, saran, atau laporan masalah ke admin.\n" +
+          "Tiket akan dibuat otomatis dan admin akan merespons via DM bot.\n" +
+          "Sertakan nomor order (#YM-XXXXX) jika ada kendala transaksi.",
+        inline: false,
+      },
+      {
         name: "❓ `/help`",
         value: "Tampilkan panduan ini kapan saja.",
         inline: false,
