@@ -74,24 +74,24 @@ function layout(title: string, body: string, extraHead = ""): string {
     #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1e2330; border: 1px solid #2d3748; border-radius: 8px; padding: 0.75rem 1.25rem; font-size: 0.875rem; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; z-index: 999; }
     #toast.show { opacity: 1; transform: translateY(0); }
   </style>
+  <script>
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.borderColor = ok ? '#065f46' : '#7f1d1d';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+  async function apiFetch(url, opts = {}) {
+    const res = await fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
+    if (res.status === 401) { location.href = '/admin/login'; return null; }
+    return res;
+  }
+  </script>
 </head>
 <body>
 ${body}
 <div id="toast"></div>
-<script>
-function toast(msg, ok = true) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.borderColor = ok ? '#065f46' : '#7f1d1d';
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-async function apiFetch(url, opts = {}) {
-  const res = await fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
-  if (res.status === 401) { location.href = '/admin/login'; return null; }
-  return res;
-}
-</script>
 </body>
 </html>`;
 }
@@ -356,7 +356,7 @@ ${nav("events")}
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
-      <button class="btn btn-primary" id="btn-create" onclick="createEvent()">Buat</button>
+      <button class="btn btn-primary" id="btn-create" onclick="submitCreateEvent()">Buat</button>
     </div>
   </div>
 </div>
@@ -496,7 +496,7 @@ async function loadEvents() {
   </tr>\`).join('');
 }
 
-async function createEvent() {
+async function submitCreateEvent() {
   const btn = document.getElementById('btn-create');
   btn.disabled = true;
   const errEl = document.getElementById('modal-err');
