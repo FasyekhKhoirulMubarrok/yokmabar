@@ -58,7 +58,7 @@ const BRAND_EMOJI: Record<string, string> = {
   "free fire": "💎",
   "pubg mobile": "🪙",
   "genshin impact": "💎",
-  "valorant": "🔷",
+  "valorant": "",
   "honkai: star rail": "✨",
   "telkomsel": "📱",
   "indosat": "📱",
