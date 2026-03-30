@@ -4,6 +4,7 @@ import {
   MessageFlags,
   type ChatInputCommandInteraction,
 } from "discord.js";
+import { config } from "../../../config.js";
 
 // ─── Slash Command Definition ─────────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ export const helpCommand = new SlashCommandBuilder()
 export async function handleHelpCommand(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
+  const bonusPoints = config.REFERRAL_BONUS_POINTS;
+
   const embed = new EmbedBuilder()
     .setColor(0xf7c102)
     .setTitle("🎮 YokMabar Bot — Panduan Lengkap")
@@ -34,6 +37,14 @@ export async function handleHelpCommand(
           "4. Bot cek ID otomatis — pastikan sudah benar!\n" +
           "5. Bayar lewat QRIS yang muncul\n" +
           "Semua langkah hanya terlihat oleh kamu (ephemeral). ✅",
+        inline: false,
+      },
+      {
+        name: "🎁 `/referral`",
+        value:
+          "Dapatkan link invite unik kamu.\n" +
+          `Setiap transaksi sukses di server yang kamu invite = **+${bonusPoints} poin bonus** otomatis.\n` +
+          "Lihat juga statistik: berapa server terinvite dan total bonus yang sudah diterima.",
         inline: false,
       },
       {
