@@ -49,6 +49,7 @@ model PriceEvent {
   actualMarkupRate  Float
   scope             EventScope @default(ALL)
   scopeValue        String?
+  scopeItemCodes    String[]   @default([])
   startAt           DateTime?
   endAt             DateTime?
   createdAt         DateTime   @default(now())
@@ -145,6 +146,7 @@ enum FeedbackStatus {
 enum EventScope {
   ALL
   BRAND
+  ITEMS
 }
 
 enum Platform {

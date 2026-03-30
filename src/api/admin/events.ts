@@ -17,26 +17,31 @@ events.get("/", async (c) => {
 
 // POST /api/admin/events
 const createSchema = z.object({
-  name:             z.string().min(2),
-  displayMarkupRate: z.number().min(0.01).max(1),
-  scope:            z.enum(["ALL", "BRAND"]),
-  scopeValue:       z.string().optional(),
-  endAt:            z.string().optional(), // ISO date string
+  name:              z.string().min(2),
+  displayMarkupRate: z.number().min(0.0001).max(1),
+  scope:             z.enum(["ALL", "BRAND", "ITEMS"]),
+  scopeValue:        z.string().optional(),
+  scopeItemCodes:    z.array(z.string()).optional(),
+  endAt:             z.string().optional(), // ISO date string
 });
 
 events.post("/", zValidator("json", createSchema), async (c) => {
   const body = c.req.valid("json");
 
-  if (body.scope === "BRAND" && body.scopeValue === undefined) {
+  if (body.scope === "BRAND" && !body.scopeValue) {
     return c.json({ message: "scopeValue wajib diisi jika scope = BRAND" }, 400);
+  }
+  if (body.scope === "ITEMS" && (!body.scopeItemCodes || body.scopeItemCodes.length === 0)) {
+    return c.json({ message: "scopeItemCodes wajib diisi jika scope = ITEMS" }, 400);
   }
 
   const event = await createEvent({
-    name:             body.name,
+    name:              body.name,
     displayMarkupRate: body.displayMarkupRate,
     actualMarkupRate:  config.PRICE_EVENT_RATE,
-    scope:            body.scope,
+    scope:             body.scope,
     ...(body.scopeValue !== undefined && { scopeValue: body.scopeValue }),
+    ...(body.scopeItemCodes !== undefined && { scopeItemCodes: body.scopeItemCodes }),
     ...(body.endAt !== undefined && { endAt: new Date(body.endAt) }),
   });
 

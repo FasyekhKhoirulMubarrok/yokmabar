@@ -239,7 +239,7 @@ export async function handleTopupModalSubmit(
   const [inquiryResult, pointSummary, activeEvent] = await Promise.all([
     checkGameId(brand, gameUserId, gameServerId),
     getPointSummary(userId),
-    getActiveEvent(brand),
+    getActiveEvent(brand, product.itemCode),
   ]);
 
   const eventPricing = activeEvent !== null && product.basePrice > 0
@@ -345,8 +345,8 @@ export async function handleTopupButton(
     return;
   }
 
-  // Re-check event pricing saat tombol ditekan
-  const activeEvent = await getActiveEvent(brand);
+  // Re-check event pricing saat tombol ditekan (termasuk scope ITEMS)
+  const activeEvent = await getActiveEvent(brand, product.itemCode);
   const eventPricing = activeEvent !== null && product.basePrice > 0
     ? applyEventPricing(product.basePrice, activeEvent)
     : null;

@@ -395,9 +395,12 @@ export async function topUpScene(
     return;
   }
 
-  // Hitung effective price (event atau normal)
-  const eventPricing = activeEvent !== null && product.basePrice > 0
-    ? applyEventPricing(product.basePrice, activeEvent)
+  // Re-cek event dengan itemCode — agar scope ITEMS juga ter-cover
+  const productEvent = await conversation.external(() =>
+    getActiveEvent(brand!, product.itemCode),
+  );
+  const eventPricing = productEvent !== null && product.basePrice > 0
+    ? applyEventPricing(product.basePrice, productEvent)
     : null;
   const effectivePrice = eventPricing !== null ? eventPricing.actualPrice : product.price;
 

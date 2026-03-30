@@ -4,6 +4,7 @@ import auth from "./auth.js";
 import stats from "./stats.js";
 import events from "./events.js";
 import feedback from "./feedback.js";
+import products from "./products.js";
 import { loginPage, dashboardPage, eventsPage, feedbackPage } from "./pages.js";
 
 const admin = new Hono();
@@ -25,6 +26,7 @@ admin.use("/api/admin/*", adminApiMiddleware);
 admin.route("/api/admin", stats);
 admin.route("/api/admin/events", events);
 admin.route("/api/admin/feedback", feedback);
+admin.route("/api/admin/products", products);
 
 // ─── HTML pages ───────────────────────────────────────────────────────────────
 

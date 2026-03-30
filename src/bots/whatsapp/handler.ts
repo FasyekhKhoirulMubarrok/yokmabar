@@ -438,8 +438,8 @@ async function handleSelectNominal(phone: string, text: string, state: WaState):
   const needsServer = GAMES_NEED_SERVER_ID.has(product.brand);
   const isValorant = product.brand.toLowerCase() === "valorant";
 
-  // Hitung effective price berdasarkan event aktif
-  const activeEvent = await getActiveEvent(product.brand);
+  // Hitung effective price berdasarkan event aktif (termasuk scope ITEMS)
+  const activeEvent = await getActiveEvent(product.brand, product.itemCode);
   const ep = activeEvent !== null && product.basePrice > 0
     ? applyEventPricing(product.basePrice, activeEvent)
     : null;

@@ -302,7 +302,7 @@ ${nav("events")}
 </div>
 
 <div class="modal-overlay" id="modal">
-  <div class="modal">
+  <div class="modal" style="max-width:560px">
     <h2>Buat Price Event</h2>
     <div id="modal-err"></div>
     <div class="form-row cols-2">
@@ -311,23 +311,43 @@ ${nav("events")}
         <input type="text" id="f-name" placeholder="Harbolnas 6.6">
       </div>
       <div>
-        <label>Display Markup (fake %) — contoh: 0.14</label>
-        <input type="number" id="f-display" step="0.01" min="0.01" max="1" placeholder="0.14">
+        <label>Display Markup (fake %) — contoh: 14</label>
+        <input type="number" id="f-display" step="1" min="1" max="100" placeholder="14">
       </div>
     </div>
     <div class="form-row cols-2">
       <div>
         <label>Scope</label>
-        <select id="f-scope" onchange="toggleScopeValue()">
+        <select id="f-scope" onchange="onScopeChange()">
           <option value="ALL">Semua Game</option>
           <option value="BRAND">Brand Tertentu</option>
+          <option value="ITEMS">Item Spesifik</option>
         </select>
       </div>
-      <div id="scope-value-wrap">
-        <label>Brand (contoh: Mobile Legends)</label>
-        <input type="text" id="f-scope-value" placeholder="Mobile Legends">
+      <div id="scope-brand-wrap">
+        <label>Brand</label>
+        <select id="f-scope-brand" onchange="loadProductsForPicker()">
+          <option value="">— pilih brand —</option>
+        </select>
       </div>
     </div>
+
+    <!-- Item picker (scope=ITEMS) -->
+    <div id="items-picker-wrap" style="display:none;margin-bottom:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <label style="margin:0">Pilih Item yang Didiskon</label>
+        <div class="flex gap-1">
+          <button class="btn btn-ghost btn-sm" onclick="selectAllItems()">Pilih Semua</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearAllItems()">Batal Semua</button>
+        </div>
+      </div>
+      <input type="text" id="item-search" placeholder="Cari nama item…" oninput="filterItems()" style="margin-bottom:0.5rem">
+      <div id="items-list" style="max-height:220px;overflow-y:auto;background:#0f1117;border:1px solid #2d3748;border-radius:7px;padding:0.5rem">
+        <div class="text-sm" style="padding:0.5rem">Pilih brand terlebih dahulu</div>
+      </div>
+      <div id="items-count" class="text-sm" style="margin-top:0.4rem"></div>
+    </div>
+
     <div class="form-row">
       <div>
         <label>Berakhir Pada (opsional)</label>
@@ -342,17 +362,111 @@ ${nav("events")}
 </div>
 
 <script>
-function toggleScopeValue() {
-  document.getElementById('scope-value-wrap').style.opacity =
-    document.getElementById('f-scope').value === 'BRAND' ? '1' : '0.3';
-}
-toggleScopeValue();
+let allProducts = [];
+let selectedItemCodes = new Set();
 
-function openModal() { document.getElementById('modal').classList.add('open'); }
-function closeModal() { document.getElementById('modal').classList.remove('open'); document.getElementById('modal-err').innerHTML = ''; }
+async function loadBrands() {
+  const res = await apiFetch('/api/admin/products/brands');
+  if (!res) return;
+  const brands = await res.json();
+  const sel = document.getElementById('f-scope-brand');
+  sel.innerHTML = '<option value="">— pilih brand —</option>' +
+    brands.map(b => \`<option value="\${b}">\${b}</option>\`).join('');
+}
+
+async function loadProductsForPicker() {
+  const brand = document.getElementById('f-scope-brand').value;
+  if (!brand) return;
+  const res = await apiFetch('/api/admin/products?brand=' + encodeURIComponent(brand));
+  if (!res) return;
+  allProducts = await res.json();
+  selectedItemCodes.clear();
+  renderItems(allProducts);
+  updateCount();
+}
+
+function renderItems(list) {
+  const el = document.getElementById('items-list');
+  if (list.length === 0) {
+    el.innerHTML = '<div class="text-sm" style="padding:0.5rem">Tidak ada produk.</div>';
+    return;
+  }
+  // Group by category
+  const groups = {};
+  list.forEach(p => {
+    if (!groups[p.category]) groups[p.category] = [];
+    groups[p.category].push(p);
+  });
+  el.innerHTML = Object.entries(groups).map(([cat, items]) => \`
+    <div style="margin-bottom:0.75rem">
+      <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;padding:0.25rem 0.4rem;margin-bottom:0.25rem">\${cat}</div>
+      \${items.map(p => \`
+        <label style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.5rem;border-radius:6px;cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#1e2330'" onmouseout="this.style.background=''" data-name="\${p.itemName.toLowerCase()}">
+          <input type="checkbox" value="\${p.itemCode}" onchange="toggleItem(this)" \${selectedItemCodes.has(p.itemCode) ? 'checked' : ''} style="width:auto;accent-color:#3b82f6">
+          <span style="flex:1;font-size:0.85rem">\${p.itemName}</span>
+          <span style="font-size:0.75rem;color:#64748b">Rp \${p.basePrice.toLocaleString('id-ID')}</span>
+        </label>
+      \`).join('')}
+    </div>
+  \`).join('');
+}
+
+function filterItems() {
+  const q = document.getElementById('item-search').value.toLowerCase();
+  const filtered = q ? allProducts.filter(p => p.itemName.toLowerCase().includes(q)) : allProducts;
+  renderItems(filtered);
+}
+
+function toggleItem(cb) {
+  if (cb.checked) selectedItemCodes.add(cb.value);
+  else selectedItemCodes.delete(cb.value);
+  updateCount();
+}
+
+function selectAllItems() {
+  allProducts.forEach(p => selectedItemCodes.add(p.itemCode));
+  renderItems(allProducts);
+  updateCount();
+}
+
+function clearAllItems() {
+  selectedItemCodes.clear();
+  renderItems(allProducts);
+  updateCount();
+}
+
+function updateCount() {
+  document.getElementById('items-count').textContent =
+    selectedItemCodes.size > 0 ? \`\${selectedItemCodes.size} item dipilih\` : '';
+}
+
+function onScopeChange() {
+  const scope = document.getElementById('f-scope').value;
+  const brandWrap = document.getElementById('scope-brand-wrap');
+  const itemsWrap = document.getElementById('items-picker-wrap');
+  brandWrap.style.opacity = scope === 'ALL' ? '0.3' : '1';
+  itemsWrap.style.display = scope === 'ITEMS' ? 'block' : 'none';
+  if (scope === 'ITEMS') loadBrands();
+}
+onScopeChange();
+
+function openModal() { document.getElementById('modal').classList.add('open'); loadBrands(); }
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  document.getElementById('modal-err').innerHTML = '';
+  selectedItemCodes.clear();
+  allProducts = [];
+}
 
 function badge(isActive) {
   return isActive ? '<span class="badge badge-green">Aktif</span>' : '<span class="badge badge-gray">Nonaktif</span>';
+}
+
+function scopeLabel(e) {
+  if (e.scope === 'ALL') return 'Semua';
+  if (e.scope === 'BRAND') return e.scopeValue ?? '—';
+  if (e.scope === 'ITEMS') return \`\${e.scopeItemCodes?.length ?? 0} item\`;
+  return '—';
 }
 
 async function loadEvents() {
@@ -366,7 +480,7 @@ async function loadEvents() {
   }
   tbody.innerHTML = list.map(e => \`<tr>
     <td style="font-weight:500">\${e.name}</td>
-    <td>\${e.scope === 'BRAND' ? e.scopeValue : 'Semua'}</td>
+    <td>\${scopeLabel(e)}</td>
     <td>+\${Math.round(e.displayMarkupRate * 100)}%</td>
     <td>+\${Math.round(e.actualMarkupRate * 100)}%</td>
     <td>\${badge(e.isActive)}</td>
@@ -389,14 +503,27 @@ async function createEvent() {
   errEl.innerHTML = '';
 
   const scope = document.getElementById('f-scope').value;
-  const scopeValue = document.getElementById('f-scope-value').value.trim();
+  const scopeBrand = document.getElementById('f-scope-brand').value.trim();
   const endAt = document.getElementById('f-end-at').value;
+  const displayRaw = parseFloat(document.getElementById('f-display').value);
+
+  if (scope === 'ITEMS' && selectedItemCodes.size === 0) {
+    errEl.innerHTML = '<div class="alert alert-error">Pilih minimal 1 item.</div>';
+    btn.disabled = false;
+    return;
+  }
+  if (scope === 'BRAND' && !scopeBrand) {
+    errEl.innerHTML = '<div class="alert alert-error">Pilih brand terlebih dahulu.</div>';
+    btn.disabled = false;
+    return;
+  }
 
   const body = {
     name: document.getElementById('f-name').value.trim(),
-    displayMarkupRate: parseFloat(document.getElementById('f-display').value),
+    displayMarkupRate: displayRaw / 100,
     scope,
-    ...(scope === 'BRAND' && scopeValue ? { scopeValue } : {}),
+    ...(scope === 'BRAND' ? { scopeValue: scopeBrand } : {}),
+    ...(scope === 'ITEMS' ? { scopeItemCodes: [...selectedItemCodes] } : {}),
     ...(endAt ? { endAt: new Date(endAt).toISOString() } : {}),
   };
 

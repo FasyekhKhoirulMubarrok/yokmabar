@@ -5,7 +5,8 @@
       "mcp__context7__resolve-library-id",
       "Bash(cmd /c \"tasklist | findstr /i node\")",
       "Bash(cmd /c \"taskkill /F /IM node.exe 2>&1 & taskkill /F /IM tsx.exe 2>&1\")",
-      "Bash(cmd /c \"netstat -ano | findstr :3000\")"
+      "Bash(cmd /c \"netstat -ano | findstr :3000\")",
+      "WebFetch(domain:docs.midtrans.com)"
     ]
   }
 }

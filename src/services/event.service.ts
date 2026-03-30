@@ -13,8 +13,9 @@ export interface CreateEventInput {
   name: string;
   displayMarkupRate: number;
   actualMarkupRate: number;
-  scope: "ALL" | "BRAND";
+  scope: "ALL" | "BRAND" | "ITEMS";
   scopeValue?: string;
+  scopeItemCodes?: string[];
   startAt?: Date;
   endAt?: Date;
 }
@@ -37,14 +38,21 @@ export function applyEventPricing(basePrice: number, event: PriceEvent): EventPr
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 /**
- * Ambil event aktif yang berlaku untuk brand tertentu (atau semua game).
- * Prioritas: event BRAND lebih spesifik, tapi kita ambil yang paling baru.
+ * Ambil event aktif yang berlaku untuk brand/itemCode tertentu.
+ * Scope ITEMS: event hanya berlaku jika itemCode ada di scopeItemCodes.
+ * Scope BRAND: berlaku untuk semua item dari brand tersebut.
+ * Scope ALL: berlaku untuk semua item.
  */
-export async function getActiveEvent(brand?: string): Promise<PriceEvent | null> {
+export async function getActiveEvent(brand?: string, itemCode?: string): Promise<PriceEvent | null> {
   const now = new Date();
-  const scopeConditions = brand !== undefined
-    ? [{ scope: "ALL" as const }, { scope: "BRAND" as const, scopeValue: brand }]
-    : [{ scope: "ALL" as const }];
+
+  const scopeConditions: object[] = [{ scope: "ALL" as const }];
+  if (brand !== undefined) {
+    scopeConditions.push({ scope: "BRAND" as const, scopeValue: brand });
+  }
+  if (itemCode !== undefined) {
+    scopeConditions.push({ scope: "ITEMS" as const, scopeItemCodes: { has: itemCode } });
+  }
 
   return db.priceEvent.findFirst({
     where: {
@@ -82,6 +90,7 @@ export async function createEvent(data: CreateEventInput): Promise<PriceEvent> {
       actualMarkupRate: data.actualMarkupRate,
       scope: data.scope,
       scopeValue: data.scopeValue ?? null,
+      scopeItemCodes: data.scopeItemCodes ?? [],
       startAt: data.startAt ?? null,
       endAt: data.endAt ?? null,
     },
