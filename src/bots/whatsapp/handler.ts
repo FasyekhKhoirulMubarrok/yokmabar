@@ -476,13 +476,21 @@ async function handleInputUserId(phone: string, text: string, state: WaState): P
 
   // Cek ID game untuk brand yang support inquiry
   const inquiryResult = await checkGameId(brand, text, null);
-  if (inquiryResult !== null) {
+  if (inquiryResult !== null && inquiryResult.found) {
     await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
-  } else if (getInquirySku(brand) !== null) {
-    await sendWhatsApp(phone, `⚠️ ID tidak ditemukan. Cek kembali ID kamu ya.\nKamu masih bisa lanjut jika yakin sudah benar.`);
+  } else if (inquiryResult !== null && !inquiryResult.found) {
+    // ID tidak ditemukan — paksa ulangi input
+    await sendWhatsApp(
+      phone,
+      `❌ ID tidak ditemukan. Pastikan User ID kamu sudah benar ya!\n\nMasukkan *User ID* ${brand} kamu lagi:` +
+        footer("Contoh: 123456789"),
+    );
+    await setState(phone, { ...state, step: "input_userid" });
+    return;
   }
 
-  await showConfirmation(phone, { ...state, gameUserId: text, gameServerId: null, inquiryUsername: inquiryResult?.username ?? null });
+  const inquiryUsername = inquiryResult?.found ? inquiryResult.username : null;
+  await showConfirmation(phone, { ...state, gameUserId: text, gameServerId: null, inquiryUsername });
 }
 
 async function handleInputServerId(phone: string, text: string, state: WaState): Promise<void> {
@@ -491,13 +499,22 @@ async function handleInputServerId(phone: string, text: string, state: WaState):
 
   // Cek ID game untuk brand yang support inquiry (ML: userId.serverId)
   const inquiryResult = await checkGameId(brand, gameUserId, text);
-  if (inquiryResult !== null) {
+  if (inquiryResult !== null && inquiryResult.found) {
     await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
-  } else if (getInquirySku(brand) !== null) {
-    await sendWhatsApp(phone, `⚠️ ID tidak ditemukan. Cek kembali ID kamu ya.\nKamu masih bisa lanjut jika yakin sudah benar.`);
+  } else if (inquiryResult !== null && !inquiryResult.found) {
+    // ID tidak ditemukan — kembali ke step input User ID
+    await sendWhatsApp(
+      phone,
+      `❌ ID tidak ditemukan. Pastikan User ID dan Server ID kamu sudah benar ya!\n\nMasukkan ulang *User ID* ${brand} kamu:` +
+        footer("Contoh: 123456789"),
+    );
+    const { gameUserId: _removed, ...stateWithoutUserId } = state;
+    await setState(phone, { ...stateWithoutUserId, step: "input_userid" });
+    return;
   }
 
-  await showConfirmation(phone, { ...state, gameServerId: text, inquiryUsername: inquiryResult?.username ?? null });
+  const inquiryUsername = inquiryResult?.found ? inquiryResult.username : null;
+  await showConfirmation(phone, { ...state, gameServerId: text, inquiryUsername });
 }
 
 async function showConfirmation(phone: string, state: WaState): Promise<void> {

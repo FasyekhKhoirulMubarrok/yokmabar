@@ -210,41 +210,68 @@ async function stepInputUserId(
   conversation: TopUpConversation,
   ctx: Context,
   brand: string,
-): Promise<{ gameUserId: string; gameServerId: string | null }> {
+): Promise<{ gameUserId: string; gameServerId: string | null; inquiryUsername: string | null }> {
   const needsServer = needsServerId(brand);
+  const supportsInquiry = getInquirySku(brand) !== null;
 
   const isValorant = brand.toLowerCase() === "valorant";
-  let idPrompt: string;
-  if (isValorant) {
-    idPrompt = `🆔 Masukkan <b>Username Valorant</b> kamu:\n<i>Format: username#tag (contoh: NamaKamu#1234)</i>`;
-  } else if (needsServer) {
-    idPrompt = `🆔 Masukkan <b>User ID</b> ${brand} kamu:\n<i>Contoh: 123456789</i>`;
-  } else {
-    idPrompt = `🆔 Masukkan <b>ID akun</b> ${brand} kamu:`;
+  const idPromptText = isValorant
+    ? `🆔 Masukkan <b>Username Valorant</b> kamu:\n<i>Format: username#tag (contoh: NamaKamu#1234)</i>`
+    : needsServer
+      ? `🆔 Masukkan <b>User ID</b> ${brand} kamu:\n<i>Contoh: 123456789</i>`
+      : `🆔 Masukkan <b>ID akun</b> ${brand} kamu:`;
+
+  // Loop hingga ID valid (untuk game yang support inquiry)
+  while (true) {
+    await ctx.reply(idPromptText, { parse_mode: "HTML" });
+
+    const idCtx = await conversation.waitFor("message:text", {
+      otherwise: (c) => c.reply("😊 Kirim User ID kamu ya (text saja)!"),
+    });
+    const gameUserId = idCtx.message.text.trim();
+
+    let gameServerId: string | null = null;
+    if (needsServer) {
+      await ctx.reply(
+        `🌐 Sekarang masukkan <b>Server ID</b> kamu:\n<i>Contoh: 1234 (4 digit di belakang User ID)</i>`,
+        { parse_mode: "HTML" },
+      );
+
+      const serverCtx = await conversation.waitFor("message:text", {
+        otherwise: (c) => c.reply("😊 Kirim Server ID kamu ya!"),
+      });
+      gameServerId = serverCtx.message.text.trim();
+    }
+
+    if (!supportsInquiry) {
+      return { gameUserId, gameServerId, inquiryUsername: null };
+    }
+
+    // Cek ID ke Digiflazz — wajib valid, tidak boleh lanjut jika tidak ditemukan
+    await ctx.reply("🔍 Mengecek ID...");
+    const result = await conversation.external(() =>
+      checkGameId(brand, gameUserId, gameServerId),
+    );
+
+    if (result === null) {
+      // API error — jangan blok, lanjut tanpa verifikasi
+      return { gameUserId, gameServerId, inquiryUsername: null };
+    }
+
+    if (result.found) {
+      await ctx.reply(
+        `✅ <b>ID ditemukan!</b> Username: <b>${result.username}</b>`,
+        { parse_mode: "HTML" },
+      );
+      return { gameUserId, gameServerId, inquiryUsername: result.username };
+    }
+
+    // ID tidak ditemukan — paksa ulangi input
+    await ctx.reply(
+      `❌ <b>ID tidak ditemukan.</b> Pastikan ID kamu sudah benar ya!\nSilakan masukkan ID lagi.`,
+      { parse_mode: "HTML" },
+    );
   }
-
-  await ctx.reply(idPrompt, { parse_mode: "HTML" });
-
-  const idCtx = await conversation.waitFor("message:text", {
-    otherwise: (c) => c.reply("😊 Kirim User ID kamu ya (text saja)!"),
-  });
-  const gameUserId = idCtx.message.text.trim();
-
-  if (!needsServer) {
-    return { gameUserId, gameServerId: null };
-  }
-
-  await ctx.reply(
-    `🌐 Sekarang masukkan <b>Server ID</b> kamu:\n<i>Contoh: 1234 (4 digit di belakang User ID)</i>`,
-    { parse_mode: "HTML" },
-  );
-
-  const serverCtx = await conversation.waitFor("message:text", {
-    otherwise: (c) => c.reply("😊 Kirim Server ID kamu ya!"),
-  });
-  const gameServerId = serverCtx.message.text.trim();
-
-  return { gameUserId, gameServerId };
 }
 
 // ─── Step 5: Konfirmasi ───────────────────────────────────────────────────────
@@ -405,30 +432,13 @@ export async function topUpScene(
     : null;
   const effectivePrice = eventPricing !== null ? eventPricing.actualPrice : product.price;
 
-  // ── Step 4: Input User ID (+ Server ID jika perlu) ─────────────────────────
-  const { gameUserId, gameServerId } = await stepInputUserId(conversation, ctx, brand);
-
-  // ── Cek ID game (Free Fire & Mobile Legends) ────────────────────────────────
-  const inquiryResult = await conversation.external(() =>
-    checkGameId(brand!, gameUserId, gameServerId),
-  );
-
-  if (inquiryResult !== null) {
-    await ctx.reply(
-      `✅ <b>ID ditemukan!</b> Username: <b>${inquiryResult.username}</b>`,
-      { parse_mode: "HTML" },
-    );
-  } else if (getInquirySku(brand!) !== null) {
-    await ctx.reply(
-      `⚠️ <b>ID tidak ditemukan.</b> Cek kembali ID kamu ya.\nKamu masih bisa lanjut jika yakin sudah benar.`,
-      { parse_mode: "HTML" },
-    );
-  }
+  // ── Step 4: Input User ID (+ Server ID jika perlu, + validasi ID) ────────────
+  const { gameUserId, gameServerId, inquiryUsername } = await stepInputUserId(conversation, ctx, brand);
 
   // ── Step 5: Konfirmasi ──────────────────────────────────────────────────────
   const confirmed = await stepConfirm(
     conversation, ctx, product, gameUserId, gameServerId,
-    effectivePrice, eventPricing, inquiryResult?.username,
+    effectivePrice, eventPricing, inquiryUsername,
   );
   if (!confirmed) {
     await ctx.reply("😊 Order dibatalkan. Ketik /topup untuk mulai lagi!");

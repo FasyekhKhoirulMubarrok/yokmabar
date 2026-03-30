@@ -268,12 +268,16 @@ export async function handleTopupModalSubmit(
     .setFooter({ text: "YokMabar · Top up cepat, langsung gas!" })
     .setTimestamp();
 
-  const inquirySupported = getInquirySku(brand) !== null;
-  if (inquiryResult !== null) {
+  // Jika ID tidak ditemukan — blok, jangan tampilkan embed konfirmasi
+  if (inquiryResult !== null && !inquiryResult.found) {
+    await interaction.editReply({
+      content: `❌ **ID tidak ditemukan.** Pastikan ID kamu sudah benar, lalu coba \`/topup\` lagi ya!`,
+    });
+    return;
+  }
+
+  if (inquiryResult !== null && inquiryResult.found) {
     embed.addFields({ name: "✅ Username Terverifikasi", value: inquiryResult.username, inline: false });
-  } else if (inquirySupported) {
-    embed.addFields({ name: "⚠️ ID Tidak Ditemukan", value: "Cek kembali ID kamu. Kamu masih bisa lanjut jika yakin sudah benar.", inline: false });
-    embed.setColor(0xffa500);
   }
 
   // Tambah info poin

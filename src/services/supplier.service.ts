@@ -214,9 +214,10 @@ const INQUIRY_SKU: Record<string, string> = {
   "mobile legends": "idml",
 };
 
-export interface InquiryResult {
-  username: string;
-}
+export type InquiryResult =
+  | { found: true; username: string }  // ID valid
+  | { found: false }                   // ID tidak ditemukan (API merespons tapi tidak valid)
+  | null;                              // Brand tidak support inquiry, atau API error
 
 /**
  * Ambil inquiry SKU untuk brand tertentu.
@@ -228,14 +229,17 @@ export function getInquirySku(brand: string): string | null {
 
 /**
  * Cek ID game ke Digiflazz sebelum transaksi.
- * Return username in-game jika valid, null jika tidak support atau gagal.
- * Tidak pernah throw — gagal = lanjut tanpa cek.
+ *
+ * Return:
+ * - `{ found: true, username }` → ID valid
+ * - `{ found: false }`          → API merespons tapi ID tidak ditemukan (blok transaksi)
+ * - `null`                      → Brand tidak support, atau API error (jangan blok)
  */
 export async function checkGameId(
   brand: string,
   gameUserId: string,
   gameServerId: string | null,
-): Promise<InquiryResult | null> {
+): Promise<InquiryResult> {
   const skuCode = getInquirySku(brand);
   if (skuCode === null) return null;
 
@@ -261,11 +265,13 @@ export async function checkGameId(
     );
 
     const data = response.data;
-    if (data?.customer_name !== undefined && data.status === "Sukses") {
-      return { username: data.customer_name };
+    if (data?.customer_name !== undefined && data.customer_name !== null && data.status === "Sukses") {
+      return { found: true, username: data.customer_name };
     }
-    return null;
+    // API merespons tapi ID tidak ditemukan
+    return { found: false };
   } catch {
+    // API error — jangan blok user
     return null;
   }
 }
