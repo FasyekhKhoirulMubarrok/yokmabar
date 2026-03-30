@@ -53,6 +53,9 @@ COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 # Copy compiled output
 COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
 
+# Copy static assets (landing page images, dll)
+COPY --chown=nodejs:nodejs public ./public
+
 # Copy prisma schema (dibutuhkan untuk migrate saat startup)
 COPY --from=deps --chown=nodejs:nodejs /app/prisma ./prisma
 

@@ -1,0 +1,515 @@
+import { Hono } from "hono";
+import { config } from "../config.js";
+
+const landing = new Hono();
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
+
+const APP_NAME = config.APP_NAME ?? "YokMabar";
+const APP_URL = config.APP_URL ?? "https://yokmabar.com";
+
+function landingLayout(title: string, description: string, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <meta name="description" content="${description}">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${description}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${APP_URL}">
+  <meta property="og:image" content="${APP_URL}/images/logo-full.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description}">
+  <link rel="icon" type="image/png" href="/images/logo-emblem.png">
+  <link rel="canonical" href="${APP_URL}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #6c63ff;
+      --primary-dark: #5a52d5;
+      --accent: #ff6b6b;
+      --bg: #0d0d14;
+      --bg2: #13131f;
+      --bg3: #1a1a2e;
+      --card: #1e1e30;
+      --border: #2d2d4e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    img { max-width: 100%; }
+
+    /* Nav */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,13,20,0.85); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem; height: 60px;
+      display: flex; align-items: center; gap: 1.5rem;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 0.6rem; margin-right: auto; }
+    .nav-brand img { height: 32px; width: auto; }
+    .nav-brand span { font-weight: 800; font-size: 1.15rem; color: #fff; }
+    .nav-links { display: flex; gap: 0.25rem; }
+    .nav-links a { color: var(--muted); font-size: 0.9rem; padding: 0.4rem 0.75rem; border-radius: 8px; transition: all .15s; }
+    .nav-links a:hover { color: #fff; background: var(--card); text-decoration: none; }
+    .nav-cta { background: var(--primary); color: #fff !important; border-radius: 8px; padding: 0.4rem 1rem !important; font-weight: 600; transition: background .15s; }
+    .nav-cta:hover { background: var(--primary-dark) !important; }
+
+    /* Hero */
+    .hero {
+      min-height: 92vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 5rem 1.5rem 4rem;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(108,99,255,.18) 0%, transparent 70%);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(108,99,255,.15); border: 1px solid rgba(108,99,255,.3);
+      color: #a78bfa; font-size: 0.82rem; font-weight: 600;
+      padding: 0.3rem 0.9rem; border-radius: 999px; margin-bottom: 1.5rem;
+      letter-spacing: .03em;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 6vw, 4rem); font-weight: 800;
+      line-height: 1.1; margin-bottom: 1.25rem;
+      color: #fff;
+    }
+    .hero h1 .highlight { color: var(--primary); }
+    .hero p { font-size: clamp(1rem, 2vw, 1.2rem); color: var(--muted); max-width: 520px; margin-bottom: 2.5rem; }
+    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.75rem; border-radius: var(--radius); font-weight: 600; font-size: 1rem; transition: all .15s; cursor: pointer; border: none; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); text-decoration: none; color: #fff; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(108,99,255,.35); }
+    .btn-outline { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+    .hero-img { margin-top: 4rem; position: relative; }
+    .hero-img img { height: 80px; width: auto; opacity: .85; }
+
+    /* Platforms */
+    .platforms { padding: 5rem 1.5rem; background: var(--bg2); }
+    .section-label { text-align: center; font-size: 0.8rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--primary); margin-bottom: 1rem; }
+    .section-title { text-align: center; font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 800; color: #fff; margin-bottom: 0.75rem; }
+    .section-sub { text-align: center; color: var(--muted); max-width: 480px; margin: 0 auto 3rem; }
+    .platform-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; max-width: 900px; margin: 0 auto; }
+    .platform-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 2rem 1.5rem; text-align: center;
+      transition: border-color .2s, transform .2s;
+    }
+    .platform-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+    .platform-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .platform-card h3 { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 0.4rem; }
+    .platform-card p { color: var(--muted); font-size: 0.9rem; }
+
+    /* Features */
+    .features { padding: 5rem 1.5rem; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; max-width: 1000px; margin: 0 auto; }
+    .feature-item { display: flex; gap: 1rem; align-items: flex-start; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
+    .feature-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 0.1rem; }
+    .feature-item h3 { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+    .feature-item p { color: var(--muted); font-size: 0.875rem; }
+
+    /* Games */
+    .games { padding: 5rem 1.5rem; background: var(--bg2); }
+    .games-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; max-width: 700px; margin: 0 auto; }
+    .game-tag {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.5rem 1.2rem; font-size: 0.9rem; font-weight: 500; color: var(--text);
+      transition: all .15s;
+    }
+    .game-tag:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* CTA */
+    .cta {
+      padding: 6rem 1.5rem; text-align: center;
+      background: radial-gradient(ellipse 70% 80% at 50% 100%, rgba(108,99,255,.15) 0%, transparent 70%);
+    }
+    .cta h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; color: #fff; margin-bottom: 1rem; }
+    .cta p { color: var(--muted); max-width: 440px; margin: 0 auto 2.5rem; font-size: 1.05rem; }
+    .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+    /* Footer */
+    .footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 3rem 1.5rem 2rem; }
+    .footer-inner { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: start; }
+    .footer-brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
+    .footer-brand img { height: 28px; width: auto; }
+    .footer-brand span { font-weight: 800; color: #fff; }
+    .footer-desc { color: var(--muted); font-size: 0.875rem; max-width: 300px; }
+    .footer-links { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end; }
+    .footer-links a { color: var(--muted); font-size: 0.875rem; }
+    .footer-links a:hover { color: #fff; }
+    .footer-bottom { max-width: 1000px; margin: 2rem auto 0; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; color: var(--muted); font-size: 0.8rem; }
+
+    /* Prose (terms/privacy) */
+    .prose { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+    .prose h1 { font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; }
+    .prose .updated { color: var(--muted); font-size: 0.875rem; margin-bottom: 2.5rem; }
+    .prose h2 { font-size: 1.15rem; font-weight: 700; color: #fff; margin: 2rem 0 0.75rem; }
+    .prose p { color: var(--muted); margin-bottom: 1rem; }
+    .prose ul, .prose ol { color: var(--muted); padding-left: 1.5rem; margin-bottom: 1rem; }
+    .prose li { margin-bottom: 0.3rem; }
+    .prose a { color: var(--primary); }
+
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .footer-inner { grid-template-columns: 1fr; }
+      .footer-links { align-items: flex-start; }
+      .footer-bottom { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  ${body}
+</body>
+</html>`;
+}
+
+const NAV = `
+<nav class="nav">
+  <div class="nav-brand">
+    <img src="/images/logo-emblem.png" alt="${APP_NAME} logo" onerror="this.style.display='none'">
+    <span>${APP_NAME}</span>
+  </div>
+  <div class="nav-links">
+    <a href="/#fitur">Fitur</a>
+    <a href="/#game">Game</a>
+    <a href="/#platform">Platform</a>
+    <a href="/terms">Syarat</a>
+    <a href="/privacy">Privasi</a>
+  </div>
+  <a href="https://t.me/yokmabarbot" class="btn btn-primary nav-cta" target="_blank" rel="noopener">Top Up Sekarang</a>
+</nav>
+`;
+
+const FOOTER = `
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">
+        <img src="/images/logo-emblem.png" alt="${APP_NAME}" onerror="this.style.display='none'">
+        <span>${APP_NAME}</span>
+      </div>
+      <p class="footer-desc">Top up game cepat, langsung dari chat — tanpa perlu buka web atau aplikasi tambahan.</p>
+    </div>
+    <div class="footer-links">
+      <a href="/#fitur">Fitur</a>
+      <a href="/#game">Game</a>
+      <a href="/#platform">Platform</a>
+      <a href="/terms">Syarat & Ketentuan</a>
+      <a href="/privacy">Kebijakan Privasi</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© ${new Date().getFullYear()} ${APP_NAME}. Semua hak dilindungi.</span>
+    <span>Dibuat dengan ❤️ untuk para gamer Indonesia</span>
+  </div>
+</footer>
+`;
+
+// ─── GET / — Landing Page ─────────────────────────────────────────────────────
+
+landing.get("/", (c) => {
+  const body = `
+${NAV}
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-badge">⚡ Top up instan, langsung di chat</div>
+  <h1>Top Up Game Kamu<br>Langsung dari <span class="highlight">Chat</span></h1>
+  <p>Tanpa buka web, tanpa ribet. Top up Mobile Legends, Free Fire, dan puluhan game lain lewat Telegram, WhatsApp, atau Discord — dalam hitungan menit.</p>
+  <div class="hero-actions">
+    <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">🎮 Mulai di Telegram</a>
+    <a href="#platform" class="btn btn-outline">Lihat Semua Platform</a>
+  </div>
+  <div class="hero-img">
+    <img src="/images/logo-full.png" alt="${APP_NAME}" onerror="this.style.display='none'">
+  </div>
+</section>
+
+<!-- Platforms -->
+<section class="platforms" id="platform">
+  <p class="section-label">Platform</p>
+  <h2 class="section-title">Top Up di Mana Aja</h2>
+  <p class="section-sub">Pilih platform favoritmu — semua pengalaman sama cepatnya.</p>
+  <div class="platform-cards">
+    <div class="platform-card">
+      <div class="platform-icon">✈️</div>
+      <h3>Telegram</h3>
+      <p>Inline keyboard interaktif. Tap, pilih, bayar — selesai dalam 1 menit.</p>
+    </div>
+    <div class="platform-card">
+      <div class="platform-icon">💬</div>
+      <h3>WhatsApp</h3>
+      <p>Menu bernomor yang simpel. Cocok untuk siapa saja, tanpa perlu install app baru.</p>
+    </div>
+    <div class="platform-card">
+      <div class="platform-icon">🎮</div>
+      <h3>Discord</h3>
+      <p>Slash command <code>/topup</code> dengan autocomplete. Langsung dari server gaming kamu.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features" id="fitur">
+  <p class="section-label">Keunggulan</p>
+  <h2 class="section-title">Kenapa Pilih ${APP_NAME}?</h2>
+  <p class="section-sub">Dirancang untuk kecepatan dan kemudahan — dari gamer, untuk gamer.</p>
+  <div class="feature-grid">
+    <div class="feature-item">
+      <div class="feature-icon">⚡</div>
+      <div>
+        <h3>Proses Instan</h3>
+        <p>Item masuk ke akun game kamu dalam hitungan detik setelah pembayaran dikonfirmasi.</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🔒</div>
+      <div>
+        <h3>Pembayaran Aman</h3>
+        <p>Didukung Midtrans — QRIS, GoPay, OVO, Dana, dan transfer bank tersedia.</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🎁</div>
+      <div>
+        <h3>Sistem Poin</h3>
+        <p>Setiap transaksi mengumpulkan poin. Tukar poin untuk diskon di transaksi berikutnya.</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🔥</div>
+      <div>
+        <h3>Event Diskon</h3>
+        <p>Promo berkala untuk game-game populer. Harga lebih murah, langsung terlihat saat checkout.</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🆔</div>
+      <div>
+        <h3>Validasi ID Otomatis</h3>
+        <p>ID game dicek sebelum transaksi untuk Free Fire dan Mobile Legends — tidak perlu khawatir salah kirim.</p>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">📋</div>
+      <div>
+        <h3>Riwayat Transaksi</h3>
+        <p>Cek 5 transaksi terakhir kapan saja langsung dari chat bot.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Games -->
+<section class="games" id="game">
+  <p class="section-label">Game Tersedia</p>
+  <h2 class="section-title">Ratusan Produk, Puluhan Game</h2>
+  <p class="section-sub">Dari game mobile populer hingga PC — semua ada di ${APP_NAME}.</p>
+  <div class="games-grid">
+    <span class="game-tag">⚔️ Mobile Legends</span>
+    <span class="game-tag">🔥 Free Fire</span>
+    <span class="game-tag">🌍 Genshin Impact</span>
+    <span class="game-tag">🚀 Honkai: Star Rail</span>
+    <span class="game-tag">🎯 PUBG Mobile</span>
+    <span class="game-tag">🎮 Valorant</span>
+    <span class="game-tag">🏆 Call of Duty Mobile</span>
+    <span class="game-tag">⚡ Clash of Clans</span>
+    <span class="game-tag">🦸 Marvel Rivals</span>
+    <span class="game-tag">🎲 Ragnarok Origin</span>
+    <span class="game-tag">+ Masih banyak lagi</span>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <h2>Siap Top Up Sekarang?</h2>
+  <p>Mulai dari bot favoritmu — gratis, tanpa daftar, langsung gas!</p>
+  <div class="cta-buttons">
+    <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Buka Telegram</a>
+    <a href="https://discord.com/invite/yokmabar" class="btn btn-outline" target="_blank" rel="noopener">🎮 Join Discord</a>
+  </div>
+</section>
+
+${FOOTER}
+`;
+
+  return c.html(landingLayout(
+    `${APP_NAME} — Top Up Game Cepat & Mudah`,
+    "Top up Mobile Legends, Free Fire, Genshin Impact, dan game lainnya langsung dari Telegram, WhatsApp, atau Discord. Cepat, aman, tanpa ribet.",
+    body,
+  ));
+});
+
+// ─── GET /terms — Syarat & Ketentuan ─────────────────────────────────────────
+
+landing.get("/terms", (c) => {
+  const body = `
+${NAV}
+<div class="prose">
+  <h1>Syarat &amp; Ketentuan</h1>
+  <p class="updated">Terakhir diperbarui: 1 Januari 2025</p>
+
+  <p>Dengan menggunakan layanan ${APP_NAME} ("kami", "layanan"), kamu menyetujui syarat dan ketentuan berikut. Harap baca dengan seksama sebelum menggunakan layanan.</p>
+
+  <h2>1. Layanan</h2>
+  <p>${APP_NAME} adalah platform top up game digital yang beroperasi melalui bot Telegram, WhatsApp, dan Discord. Kami bertindak sebagai reseller produk digital dari penyedia resmi.</p>
+
+  <h2>2. Penggunaan Layanan</h2>
+  <ul>
+    <li>Kamu wajib memastikan ID game dan data yang dimasukkan sudah benar sebelum konfirmasi.</li>
+    <li>Setiap transaksi yang sudah dibayar dan diproses tidak dapat dibatalkan.</li>
+    <li>Kamu bertanggung jawab penuh atas akun game yang di-top up.</li>
+    <li>Dilarang menggunakan layanan untuk tujuan penipuan, pencucian uang, atau aktivitas ilegal.</li>
+  </ul>
+
+  <h2>3. Pembayaran</h2>
+  <ul>
+    <li>Pembayaran diproses melalui Midtrans sebagai payment gateway resmi.</li>
+    <li>Tagihan memiliki batas waktu 15 menit. Transaksi yang melewati batas waktu akan otomatis dibatalkan.</li>
+    <li>Harga yang tertera sudah termasuk biaya layanan dan bersifat final.</li>
+    <li>Kami tidak menyimpan data kartu kredit atau informasi pembayaran sensitif.</li>
+  </ul>
+
+  <h2>4. Refund &amp; Pembatalan</h2>
+  <p>Transaksi yang telah berhasil diproses pada umumnya tidak dapat direfund karena bersifat digital dan instan. Pengecualian berlaku jika:</p>
+  <ul>
+    <li>Item tidak masuk ke akun dalam 24 jam setelah pembayaran dikonfirmasi.</li>
+    <li>Terjadi kesalahan teknis pada sistem kami.</li>
+  </ul>
+  <p>Untuk klaim refund, hubungi kami melalui fitur feedback di bot dengan menyertakan nomor order (#YM-XXXXX).</p>
+
+  <h2>5. Sistem Poin</h2>
+  <ul>
+    <li>Poin diperoleh dari setiap transaksi yang berhasil (SUCCESS).</li>
+    <li>Poin berlaku selama 90 hari sejak transaksi terakhir.</li>
+    <li>Poin tidak dapat ditransfer, dicairkan, atau ditukar menjadi uang tunai.</li>
+    <li>Kami berhak mengubah nilai tukar poin dengan pemberitahuan terlebih dahulu.</li>
+  </ul>
+
+  <h2>6. Batasan Tanggung Jawab</h2>
+  <p>${APP_NAME} tidak bertanggung jawab atas:</p>
+  <ul>
+    <li>Kesalahan input data (User ID, Server ID) yang dilakukan oleh pengguna.</li>
+    <li>Gangguan layanan akibat pemeliharaan platform pihak ketiga (Telegram, WhatsApp, Discord, game publisher).</li>
+    <li>Kerugian tidak langsung yang timbul dari penggunaan layanan.</li>
+  </ul>
+
+  <h2>7. Perubahan Layanan</h2>
+  <p>Kami berhak mengubah, menangguhkan, atau menghentikan layanan kapan saja dengan pemberitahuan minimal 7 hari melalui bot atau media sosial resmi.</p>
+
+  <h2>8. Hukum yang Berlaku</h2>
+  <p>Syarat dan ketentuan ini diatur oleh hukum Republik Indonesia. Segala sengketa diselesaikan secara musyawarah, atau melalui pengadilan yang berwenang di Indonesia.</p>
+
+  <h2>9. Kontak</h2>
+  <p>Pertanyaan atau keluhan dapat disampaikan melalui fitur feedback di bot ${APP_NAME} atau menghubungi admin melalui platform yang tersedia.</p>
+</div>
+${FOOTER}
+`;
+
+  return c.html(landingLayout(
+    `Syarat & Ketentuan — ${APP_NAME}`,
+    `Baca syarat dan ketentuan penggunaan layanan top up game ${APP_NAME}.`,
+    body,
+  ));
+});
+
+// ─── GET /privacy — Kebijakan Privasi ────────────────────────────────────────
+
+landing.get("/privacy", (c) => {
+  const body = `
+${NAV}
+<div class="prose">
+  <h1>Kebijakan Privasi</h1>
+  <p class="updated">Terakhir diperbarui: 1 Januari 2025</p>
+
+  <p>Kebijakan ini menjelaskan bagaimana ${APP_NAME} mengumpulkan, menggunakan, dan melindungi data pribadi kamu saat menggunakan layanan kami.</p>
+
+  <h2>1. Data yang Kami Kumpulkan</h2>
+  <p>Kami mengumpulkan data minimal yang diperlukan untuk menjalankan layanan:</p>
+  <ul>
+    <li><strong>Identitas platform:</strong> User ID dan username dari Telegram, WhatsApp (nomor HP), atau Discord.</li>
+    <li><strong>Data transaksi:</strong> Game yang dibeli, nominal, ID game yang di-top up, status pembayaran.</li>
+    <li><strong>Data poin:</strong> Akumulasi dan riwayat penukaran poin.</li>
+    <li><strong>Log teknis:</strong> Timestamp transaksi untuk keperluan audit dan penyelesaian sengketa.</li>
+  </ul>
+
+  <h2>2. Data yang TIDAK Kami Kumpulkan</h2>
+  <ul>
+    <li>Data kartu kredit atau rekening bank.</li>
+    <li>Password atau PIN akun game kamu.</li>
+    <li>Isi percakapan di luar alur transaksi bot.</li>
+    <li>Data lokasi atau perangkat.</li>
+  </ul>
+
+  <h2>3. Penggunaan Data</h2>
+  <p>Data kamu digunakan untuk:</p>
+  <ul>
+    <li>Memproses transaksi top up.</li>
+    <li>Menampilkan riwayat transaksi.</li>
+    <li>Mengelola saldo poin reward.</li>
+    <li>Mengirim notifikasi status transaksi.</li>
+    <li>Menangani keluhan dan permintaan refund.</li>
+    <li>Mencegah penipuan dan penyalahgunaan layanan.</li>
+  </ul>
+
+  <h2>4. Berbagi Data dengan Pihak Ketiga</h2>
+  <p>Kami membagikan data terbatas kepada:</p>
+  <ul>
+    <li><strong>Digiflazz</strong> (supplier): User ID game untuk memproses top up.</li>
+    <li><strong>Midtrans</strong> (payment): Data transaksi untuk memproses pembayaran.</li>
+  </ul>
+  <p>Kami tidak menjual data pribadi kamu kepada pihak manapun untuk tujuan pemasaran.</p>
+
+  <h2>5. Keamanan Data</h2>
+  <ul>
+    <li>Data disimpan di server yang dilindungi firewall dan enkripsi.</li>
+    <li>Akses ke database dibatasi hanya untuk sistem otomatis dan admin terotorisasi.</li>
+    <li>Komunikasi menggunakan HTTPS/TLS.</li>
+    <li>Token dan kredensial sensitif tidak pernah disimpan dalam log.</li>
+  </ul>
+
+  <h2>6. Retensi Data</h2>
+  <p>Data transaksi disimpan selama minimal 1 tahun untuk keperluan audit dan penyelesaian sengketa. Data akun pengguna disimpan selama akun aktif dan dapat dihapus atas permintaan.</p>
+
+  <h2>7. Hak Pengguna</h2>
+  <p>Kamu berhak untuk:</p>
+  <ul>
+    <li>Meminta salinan data pribadi yang kami miliki.</li>
+    <li>Meminta penghapusan akun dan data terkait (kecuali data transaksi yang masih dalam masa retensi).</li>
+    <li>Mengajukan keberatan atas penggunaan data.</li>
+  </ul>
+  <p>Untuk mengajukan permintaan, gunakan fitur feedback di bot ${APP_NAME}.</p>
+
+  <h2>8. Cookie &amp; Sesi Admin</h2>
+  <p>Panel admin menggunakan cookie sesi yang bersifat httpOnly dan secure. Cookie ini tidak digunakan untuk melacak pengguna umum.</p>
+
+  <h2>9. Perubahan Kebijakan</h2>
+  <p>Perubahan kebijakan privasi akan diberitahukan melalui bot atau halaman ini minimal 7 hari sebelum berlaku.</p>
+
+  <h2>10. Kontak</h2>
+  <p>Pertanyaan seputar privasi dapat disampaikan melalui fitur feedback di bot ${APP_NAME}.</p>
+</div>
+${FOOTER}
+`;
+
+  return c.html(landingLayout(
+    `Kebijakan Privasi — ${APP_NAME}`,
+    `Pelajari bagaimana ${APP_NAME} mengumpulkan, menggunakan, dan melindungi data pribadimu.`,
+    body,
+  ));
+});
+
+export default landing;

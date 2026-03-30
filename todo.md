@@ -29,3 +29,35 @@
 - Simpan `announcedAt` di model `PriceEvent` agar tidak kirim duplikat
 - Tambah `discordAnnounceChannelId` di config (beda dari admin channel)
 - Pertimbangkan rate limiting Telegram broadcast (30 msg/detik maks)
+
+---
+
+## 🌐 Web Top Up — Fitur Masa Depan
+
+> Landing page sudah ada di `/` untuk branding & SEO.
+> Fase berikutnya: tambah fitur top up langsung dari website.
+
+### Yang perlu dibangun:
+
+- [ ] **Halaman Top Up** (`/topup`) — form pilih game, nominal, input User ID
+  - Autocomplete game & nominal (reuse endpoint yang sudah ada)
+  - Validasi ID via Digiflazz inquiry sebelum lanjut ke pembayaran
+  - Redirect ke payment URL Midtrans setelah order dibuat
+
+- [ ] **Autentikasi user** — Login/register via platform (OAuth Discord, atau nomor HP OTP)
+  - Atau tanpa login — transaksi guest dengan identifikasi via email/nomor HP
+
+- [ ] **Halaman Status Order** (`/order/:id`) — cek status transaksi
+  - Polling atau SSE untuk update real-time
+
+- [ ] **Halaman Riwayat** (jika ada autentikasi) — daftar transaksi user
+
+- [ ] **SEO enhancements**:
+  - Sitemap XML (`/sitemap.xml`)
+  - robots.txt (`/robots.txt`)
+  - Structured data (JSON-LD) untuk rich snippet
+
+### Catatan desain:
+- Reuse semua service yang ada (`order.service`, `payment.service`, dll)
+- Endpoint API bisa di `/api/topup/*` — terpisah dari admin
+- Pertimbangkan CSRF protection untuk form submission

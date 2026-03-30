@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { redis } from "../db/redis.js";
 import { config } from "../config.js";
 import health from "./health.js";
@@ -8,6 +9,7 @@ import webhookMidtrans from "./webhook.midtrans.js";
 import webhookDigiflazz from "./webhook.digiflazz.js";
 import oauthDiscord from "./oauth.discord.js";
 import adminPanel from "./admin/index.js";
+import landing from "./landing.js";
 
 const app = new Hono();
 
@@ -59,12 +61,17 @@ app.use("/health", async (c, next) => {
   await next();
 });
 
+// ─── Static Files (public/) ───────────────────────────────────────────────────
+
+app.use("/images/*", serveStatic({ root: "./public" }));
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.route("/health", health);
 app.route("/webhook/midtrans", webhookMidtrans);
 app.route("/webhook/digiflazz", webhookDigiflazz);
 app.route("/oauth/discord", oauthDiscord);
+app.route("/", landing);
 app.route("/", adminPanel);
 
 // ─── 404 fallback ─────────────────────────────────────────────────────────────
