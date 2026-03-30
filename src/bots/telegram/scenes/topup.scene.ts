@@ -13,7 +13,7 @@ import { checkGameId, getInquirySku } from "../../../services/supplier.service.j
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product, type PriceEvent } from "@prisma/client";
-import { getActiveEvent, applyEventPricing, type EventPricing } from "../../../services/event.service.js";
+import { getActiveEvent, applyEventPricing, eventAppliesToItem, type EventPricing } from "../../../services/event.service.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -165,7 +165,7 @@ async function stepSelectNominal(
   // Bangun teks list bernomor
   const lines = list.map((p, i) => {
     const num = String(i + 1).padStart(2, " ");
-    if (event !== null && p.basePrice > 0) {
+    if (event !== null && p.basePrice > 0 && eventAppliesToItem(event, p.itemCode)) {
       const ep = applyEventPricing(p.basePrice, event);
       const clean = stripBrandPrefix(brand, p.itemName);
       return `${num}. ${getBrandEmoji(brand)} ${clean}\n    <s>${formatRupiah(ep.strikethroughPrice)}</s> → <b>${formatRupiah(ep.actualPrice)}</b> 🔥 -${ep.discountPercent}%`;
@@ -386,7 +386,8 @@ export async function topUpScene(
   }
 
   // ── Cek event aktif untuk brand ini ────────────────────────────────────────
-  const activeEvent = await conversation.external(() => getActiveEvent(brand!));
+  // includeItemsScope=true agar item spesifik yang didiskon juga tampil di nominal list
+  const activeEvent = await conversation.external(() => getActiveEvent(brand!, undefined, true));
 
   // ── Step 3: Pilih nominal ───────────────────────────────────────────────────
   const product = await stepSelectNominal(conversation, ctx, brand, activeEvent);

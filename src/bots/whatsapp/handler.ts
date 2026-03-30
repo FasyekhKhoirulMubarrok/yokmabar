@@ -16,7 +16,7 @@ import { config } from "../../config.js";
 import { stripBrandPrefix } from "../../utils/formatter.js";
 import { checkGameId, getInquirySku } from "../../services/supplier.service.js";
 import { type Product } from "@prisma/client";
-import { getActiveEvent, applyEventPricing } from "../../services/event.service.js";
+import { getActiveEvent, applyEventPricing, eventAppliesToItem } from "../../services/event.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -137,12 +137,12 @@ async function sendGameMenu(phone: string): Promise<void> {
 }
 
 async function sendNominalMenu(phone: string, brand: string, products: Product[]): Promise<void> {
-  const activeEvent = await getActiveEvent(brand);
+  const activeEvent = await getActiveEvent(brand, undefined, true);
   const list = products.slice(0, 15);
 
   const items = list.map((p) => {
     const clean = stripBrandPrefix(brand, p.itemName);
-    if (activeEvent !== null && p.basePrice > 0) {
+    if (activeEvent !== null && p.basePrice > 0 && eventAppliesToItem(activeEvent, p.itemCode)) {
       const ep = applyEventPricing(p.basePrice, activeEvent);
       return `${clean} — ~${formatRupiah(ep.strikethroughPrice)}~ → *${formatRupiah(ep.actualPrice)}* 🔥 -${ep.discountPercent}%`;
     }

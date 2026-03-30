@@ -43,7 +43,16 @@ export function applyEventPricing(basePrice: number, event: PriceEvent): EventPr
  * Scope BRAND: berlaku untuk semua item dari brand tersebut.
  * Scope ALL: berlaku untuk semua item.
  */
-export async function getActiveEvent(brand?: string, itemCode?: string): Promise<PriceEvent | null> {
+/**
+ * Ambil event aktif yang berlaku untuk brand/itemCode tertentu.
+ * - includeItemsScope=true: sertakan ITEMS-scope events (tanpa filter itemCode),
+ *   berguna saat render nominal list — caller wajib cek scopeItemCodes per item.
+ */
+export async function getActiveEvent(
+  brand?: string,
+  itemCode?: string,
+  includeItemsScope = false,
+): Promise<PriceEvent | null> {
   const now = new Date();
 
   const scopeConditions: object[] = [{ scope: "ALL" as const }];
@@ -52,6 +61,8 @@ export async function getActiveEvent(brand?: string, itemCode?: string): Promise
   }
   if (itemCode !== undefined) {
     scopeConditions.push({ scope: "ITEMS" as const, scopeItemCodes: { has: itemCode } });
+  } else if (includeItemsScope) {
+    scopeConditions.push({ scope: "ITEMS" as const });
   }
 
   return db.priceEvent.findFirst({
@@ -65,6 +76,13 @@ export async function getActiveEvent(brand?: string, itemCode?: string): Promise
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+/** Helper: cek apakah event berlaku untuk item tertentu */
+export function eventAppliesToItem(event: PriceEvent, itemCode: string): boolean {
+  if (event.scope === "ALL" || event.scope === "BRAND") return true;
+  if (event.scope === "ITEMS") return event.scopeItemCodes.includes(itemCode);
+  return false;
 }
 
 export async function listEvents(): Promise<PriceEvent[]> {

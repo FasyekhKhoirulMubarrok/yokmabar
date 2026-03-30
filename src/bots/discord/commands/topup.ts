@@ -28,7 +28,7 @@ import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
 import { checkGameId, getInquirySku } from "../../../services/supplier.service.js";
-import { getActiveEvent, applyEventPricing } from "../../../services/event.service.js";
+import { getActiveEvent, applyEventPricing, eventAppliesToItem } from "../../../services/event.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ export async function handleTopupAutocomplete(
 
     const [products, activeEvent] = await Promise.all([
       getProductsByBrand(selectedBrand),
-      getActiveEvent(selectedBrand),
+      getActiveEvent(selectedBrand, undefined, true),
     ]);
     const filtered = products
       .filter((p) =>
@@ -126,7 +126,7 @@ export async function handleTopupAutocomplete(
 
     await interaction.respond(
       filtered.map((p) => {
-        if (activeEvent !== null && p.basePrice > 0) {
+        if (activeEvent !== null && p.basePrice > 0 && eventAppliesToItem(activeEvent, p.itemCode)) {
           const ep = applyEventPricing(p.basePrice, activeEvent);
           const base = formatNominalLabel(selectedBrand, p.itemName, ep.actualPrice);
           return { name: `🔥 ${base} (was ${formatRupiah(ep.strikethroughPrice)})`, value: p.itemCode };
