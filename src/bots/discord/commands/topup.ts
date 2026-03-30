@@ -129,7 +129,7 @@ export async function handleTopupAutocomplete(
         if (activeEvent !== null && p.basePrice > 0 && eventAppliesToItem(activeEvent, p.itemCode)) {
           const ep = applyEventPricing(p.basePrice, activeEvent);
           const base = formatNominalLabel(selectedBrand, p.itemName, ep.actualPrice);
-          return { name: `🔥 ${base} (was ${formatRupiah(ep.strikethroughPrice)})`, value: p.itemCode };
+          return { name: `🔥 ${base} (dari ${formatRupiah(ep.strikethroughPrice)} · -${ep.discountPercent}%)`, value: p.itemCode };
         }
         return { name: formatNominalLabel(selectedBrand, p.itemName, p.price), value: p.itemCode };
       }),
