@@ -235,10 +235,10 @@ ${NAV}
 <section class="hero">
   <div class="hero-badge">⚡ Top up instan, langsung di chat</div>
   <h1>Top Up Game Kamu<br>Langsung dari <span class="highlight">Chat</span></h1>
-  <p>Tanpa buka web, tanpa ribet. Top up Mobile Legends, Free Fire, dan puluhan game lain lewat Telegram, WhatsApp, atau Discord — dalam hitungan menit.</p>
+  <p>Tanpa buka web, tanpa ribet. Top up Mobile Legends, Free Fire, dan puluhan game lain lewat Telegram atau Discord — dalam hitungan menit.</p>
   <div class="hero-actions">
-    <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">🎮 Mulai di Telegram</a>
-    <a href="#platform" class="btn btn-outline">Lihat Semua Platform</a>
+    <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Mulai di Telegram</a>
+    <a href="https://discord.gg/QSbSBBQ3C8" class="btn btn-outline" target="_blank" rel="noopener">🎮 Join Discord</a>
   </div>
   <div class="hero-img">
     <img src="/images/logo-full.png" alt="${APP_NAME}" onerror="this.style.display='none'">
@@ -257,15 +257,17 @@ ${NAV}
       <p>Inline keyboard interaktif. Tap, pilih, bayar — selesai dalam 1 menit.</p>
     </div>
     <div class="platform-card">
-      <div class="platform-icon">💬</div>
-      <h3>WhatsApp</h3>
-      <p>Menu bernomor yang simpel. Cocok untuk siapa saja, tanpa perlu install app baru.</p>
-    </div>
-    <div class="platform-card">
       <div class="platform-icon">🎮</div>
       <h3>Discord</h3>
       <p>Slash command <code>/topup</code> dengan autocomplete. Langsung dari server gaming kamu.</p>
     </div>
+    <!--
+    <div class="platform-card">
+      <div class="platform-icon">💬</div>
+      <h3>WhatsApp</h3>
+      <p>Menu bernomor yang simpel. Cocok untuk siapa saja, tanpa perlu install app baru.</p>
+    </div>
+    -->
   </div>
 </section>
 
@@ -346,7 +348,7 @@ ${NAV}
   <p>Mulai dari bot favoritmu — gratis, tanpa daftar, langsung gas!</p>
   <div class="cta-buttons">
     <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Buka Telegram</a>
-    <a href="https://discord.com/invite/yokmabar" class="btn btn-outline" target="_blank" rel="noopener">🎮 Join Discord</a>
+    <a href="https://discord.gg/QSbSBBQ3C8" class="btn btn-outline" target="_blank" rel="noopener">🎮 Join Discord</a>
   </div>
 </section>
 
@@ -355,7 +357,7 @@ ${FOOTER}
 
   return c.html(landingLayout(
     `${APP_NAME} — Top Up Game Cepat & Mudah`,
-    "Top up Mobile Legends, Free Fire, Genshin Impact, dan game lainnya langsung dari Telegram, WhatsApp, atau Discord. Cepat, aman, tanpa ribet.",
+    "Top up Mobile Legends, Free Fire, Genshin Impact, dan game lainnya langsung dari Telegram atau Discord. Cepat, aman, tanpa ribet.",
     body,
   ));
 });
@@ -372,7 +374,7 @@ ${NAV}
   <p>Dengan menggunakan layanan ${APP_NAME} ("kami", "layanan"), kamu menyetujui syarat dan ketentuan berikut. Harap baca dengan seksama sebelum menggunakan layanan.</p>
 
   <h2>1. Layanan</h2>
-  <p>${APP_NAME} adalah platform top up game digital yang beroperasi melalui bot Telegram, WhatsApp, dan Discord. Kami bertindak sebagai reseller produk digital dari penyedia resmi.</p>
+  <p>${APP_NAME} adalah platform top up game digital yang beroperasi melalui bot Telegram dan Discord. Kami bertindak sebagai reseller produk digital dari penyedia resmi.</p>
 
   <h2>2. Penggunaan Layanan</h2>
   <ul>
@@ -410,7 +412,7 @@ ${NAV}
   <p>${APP_NAME} tidak bertanggung jawab atas:</p>
   <ul>
     <li>Kesalahan input data (User ID, Server ID) yang dilakukan oleh pengguna.</li>
-    <li>Gangguan layanan akibat pemeliharaan platform pihak ketiga (Telegram, WhatsApp, Discord, game publisher).</li>
+    <li>Gangguan layanan akibat pemeliharaan platform pihak ketiga (Telegram, Discord, game publisher).</li>
     <li>Kerugian tidak langsung yang timbul dari penggunaan layanan.</li>
   </ul>
 
@@ -447,7 +449,8 @@ ${NAV}
   <h2>1. Data yang Kami Kumpulkan</h2>
   <p>Kami mengumpulkan data minimal yang diperlukan untuk menjalankan layanan:</p>
   <ul>
-    <li><strong>Identitas platform:</strong> User ID dan username dari Telegram, WhatsApp (nomor HP), atau Discord.</li>
+    <li><strong>Identitas platform:</strong> User ID dan username dari Telegram atau Discord.</li>
+    <!-- WhatsApp (nomor HP) — akan ditambahkan saat layanan aktif -->
     <li><strong>Data transaksi:</strong> Game yang dibeli, nominal, ID game yang di-top up, status pembayaran.</li>
     <li><strong>Data poin:</strong> Akumulasi dan riwayat penukaran poin.</li>
     <li><strong>Log teknis:</strong> Timestamp transaksi untuk keperluan audit dan penyelesaian sengketa.</li>
