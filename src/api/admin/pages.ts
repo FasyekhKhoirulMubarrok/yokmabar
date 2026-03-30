@@ -1,5 +1,14 @@
 // ─── Shared layout ────────────────────────────────────────────────────────────
 
+// Escape HTML untuk mencegah XSS saat render user content di innerHTML
+// Digunakan di semua tempat yang menampilkan data dari user (pesan, username, dll)
+const escapeHtmlJs = `
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+`.trim();
+
 function layout(title: string, body: string, extraHead = ""): string {
   return `<!DOCTYPE html>
 <html lang="id">
@@ -75,6 +84,7 @@ function layout(title: string, body: string, extraHead = ""): string {
     #toast.show { opacity: 1; transform: translateY(0); }
   </style>
   <script>
+  ${escapeHtmlJs}
   function toast(msg, ok = true) {
     const el = document.getElementById('toast');
     el.textContent = msg;
@@ -629,13 +639,13 @@ async function loadFeedback() {
     return;
   }
   tbody.innerHTML = list.map(t => \`<tr>
-    <td style="font-family:monospace;font-size:0.8rem">\${t.ticketId}</td>
+    <td style="font-family:monospace;font-size:0.8rem">\${esc(t.ticketId)}</td>
     <td>\${platformBadge(t.user.platform)}</td>
-    <td class="text-sm">\${t.user.username ?? t.user.platformUserId}</td>
-    <td class="text-sm" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${t.message}</td>
+    <td class="text-sm">\${esc(t.user.username ?? t.user.platformUserId)}</td>
+    <td class="text-sm" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${esc(t.message)}</td>
     <td>\${statusBadge(t.status)}</td>
     <td class="text-sm">\${new Date(t.updatedAt).toLocaleString('id-ID')}</td>
-    <td><button class="btn btn-ghost btn-sm" onclick="openThread('\${t.ticketId}')">Buka</button></td>
+    <td><button class="btn btn-ghost btn-sm" onclick="openThread('\${esc(t.ticketId)}')">Buka</button></td>
   </tr>\`).join('');
 }
 
@@ -653,7 +663,7 @@ async function openThread(ticketId) {
   const msgs = [{ message: t.message, fromAdmin: false, createdAt: t.createdAt }, ...t.replies];
   document.getElementById('thread-messages').innerHTML = msgs.map(m => \`
     <div>
-      <div class="bubble \${m.fromAdmin ? 'bubble-admin' : 'bubble-user'}">\${m.message}</div>
+      <div class="bubble \${m.fromAdmin ? 'bubble-admin' : 'bubble-user'}">\${esc(m.message)}</div>
       <div class="bubble-meta" style="text-align:\${m.fromAdmin ? 'right' : 'left'}">\${m.fromAdmin ? 'Admin' : 'User'} · \${new Date(m.createdAt).toLocaleString('id-ID')}</div>
     </div>
   \`).join('');

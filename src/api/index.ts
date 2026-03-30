@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { redis } from "../db/redis.js";
+import { config } from "../config.js";
 import health from "./health.js";
 import webhookMidtrans from "./webhook.midtrans.js";
 import webhookDigiflazz from "./webhook.digiflazz.js";
@@ -19,8 +20,8 @@ app.use(logger());
 app.use(
   "/*",
   cors({
-    origin: "*",
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    origin: config.APP_URL,
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     maxAge: 600,
   }),
