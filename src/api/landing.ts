@@ -7,6 +7,31 @@ const landing = new Hono();
 
 const APP_NAME = config.APP_NAME ?? "YokMabar";
 const APP_URL = config.APP_URL ?? "https://yokmabar.com";
+const DISCORD_SERVER_URL = "https://discord.gg/QSbSBBQ3C8";
+const DISCORD_INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${config.DISCORD_CLIENT_ID}&scope=bot+applications.commands&permissions=277025392640`;
+
+function discordDropdownBtn(extraClass = ""): string {
+  return `
+<div class="discord-dropdown">
+  <button class="btn btn-outline${extraClass ? " " + extraClass : ""}" onclick="toggleDiscordDropdown(this)">🎮 Discord ▾</button>
+  <div class="discord-dropdown-menu">
+    <a href="${DISCORD_SERVER_URL}" target="_blank" rel="noopener">
+      <span class="dd-icon">🎮</span>
+      <div class="dd-label">
+        <strong>Gabung Server YokMabar</strong>
+        <span>Bergabung ke komunitas gamer kami</span>
+      </div>
+    </a>
+    <a href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener">
+      <span class="dd-icon">🤖</span>
+      <div class="dd-label">
+        <strong>Invite Bot ke Servermu</strong>
+        <span>Tambahkan YokMabar Bot ke server Discord-mu</span>
+      </div>
+    </a>
+  </div>
+</div>`;
+}
 
 function landingLayout(title: string, description: string, body: string): string {
   return `<!DOCTYPE html>
@@ -169,16 +194,52 @@ function landingLayout(title: string, description: string, body: string): string
     .prose a { color: var(--primary); }
     .prose strong { color: var(--text); }
 
+    /* Discord Dropdown */
+    .discord-dropdown { position: relative; display: inline-flex; }
+    .discord-dropdown-menu {
+      display: none; position: absolute; top: calc(100% + 8px); left: 50%;
+      transform: translateX(-50%); min-width: 260px; z-index: 200;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      box-shadow: 0 12px 36px rgba(0,0,0,.5);
+    }
+    .discord-dropdown-menu.open { display: block; }
+    .discord-dropdown-menu a {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.85rem 1rem; color: var(--text);
+      transition: background .15s; text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .discord-dropdown-menu a:last-child { border-bottom: none; }
+    .discord-dropdown-menu a:hover { background: var(--bg3); text-decoration: none; }
+    .discord-dropdown-menu .dd-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .discord-dropdown-menu .dd-label strong { display: block; font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.1rem; }
+    .discord-dropdown-menu .dd-label span { font-size: 0.78rem; color: var(--muted); }
+
     @media (max-width: 640px) {
       .nav-links { display: none; }
       .footer-inner { grid-template-columns: 1fr; }
       .footer-links { align-items: flex-start; }
       .footer-bottom { flex-direction: column; align-items: flex-start; }
+      .discord-dropdown-menu { left: 0; transform: none; }
     }
   </style>
 </head>
 <body>
   ${body}
+<script>
+  function toggleDiscordDropdown(btn) {
+    const menu = btn.nextElementSibling;
+    const isOpen = menu.classList.contains('open');
+    document.querySelectorAll('.discord-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    if (!isOpen) menu.classList.add('open');
+  }
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.discord-dropdown')) {
+      document.querySelectorAll('.discord-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    }
+  });
+</script>
 </body>
 </html>`;
 }
@@ -238,7 +299,7 @@ ${NAV}
   <p>Tanpa buka web, tanpa ribet. Top up Mobile Legends, Free Fire, dan puluhan game lain lewat Telegram atau Discord — dalam hitungan menit.</p>
   <div class="hero-actions">
     <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Mulai di Telegram</a>
-    <a href="https://discord.gg/QSbSBBQ3C8" class="btn btn-outline" target="_blank" rel="noopener">🎮 Join Discord</a>
+    ${discordDropdownBtn()}
   </div>
   <div class="hero-img">
     <img src="/images/logo-full.png" alt="${APP_NAME}" onerror="this.style.display='none'">
@@ -348,7 +409,7 @@ ${NAV}
   <p>Mulai dari bot favoritmu — gratis, tanpa daftar, langsung gas!</p>
   <div class="cta-buttons">
     <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Buka Telegram</a>
-    <a href="https://discord.gg/QSbSBBQ3C8" class="btn btn-outline" target="_blank" rel="noopener">🎮 Join Discord</a>
+    ${discordDropdownBtn()}
   </div>
 </section>
 

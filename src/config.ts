@@ -33,7 +33,7 @@ const EnvSchema = z.object({
 
   // ── Sistem Poin ───────────────────────────────────────────────────────────
   POINT_EXPIRY_DAYS: z.coerce.number().default(90),
-  POINT_RATE: z.coerce.number().default(1000),
+  POINT_RATE: z.coerce.number().default(2000),
   POINT_REDEEM_UNIT: z.coerce.number().default(200),
   POINT_REDEEM_VALUE: z.coerce.number().default(1000),
 
