@@ -131,12 +131,37 @@ function landingLayout(title: string, description: string, body: string): string
     .platform-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 2rem 1.5rem; text-align: center;
-      transition: border-color .2s, transform .2s, box-shadow .2s;
     }
-    .platform-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 8px 28px rgba(247,193,2,.08); }
     .platform-icon { font-size: 2.5rem; margin-bottom: 1rem; }
     .platform-card h3 { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 0.4rem; }
     .platform-card p { color: var(--muted); font-size: 0.9rem; }
+
+    /* Tutorial */
+    .tutorial { padding: 5rem 1.5rem; }
+    .tutorial-tabs { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 2.5rem; }
+    .tab-btn {
+      padding: 0.55rem 1.4rem; border-radius: 999px; font-size: 0.9rem; font-weight: 700;
+      border: 1.5px solid var(--border); background: transparent; color: var(--muted);
+      cursor: pointer; transition: all .15s;
+    }
+    .tab-btn.active { background: var(--primary); border-color: var(--primary); color: #000; }
+    .tab-btn:not(.active):hover { border-color: var(--primary); color: var(--primary); }
+    .tab-panel { display: none; max-width: 680px; margin: 0 auto; }
+    .tab-panel.active { display: block; }
+    .steps { display: flex; flex-direction: column; gap: 1rem; }
+    .step {
+      display: flex; gap: 1rem; align-items: flex-start;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+    }
+    .step-num {
+      flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 50%;
+      background: var(--primary); color: #000; font-weight: 800; font-size: 0.85rem;
+      display: flex; align-items: center; justify-content: center; margin-top: 0.1rem;
+    }
+    .step-body h4 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
+    .step-body p { font-size: 0.875rem; color: var(--muted); }
+    .step-body code { background: var(--bg3); border: 1px solid var(--border); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.82rem; color: var(--primary); }
 
     /* Features */
     .features { padding: 5rem 1.5rem; }
@@ -239,6 +264,12 @@ function landingLayout(title: string, description: string, body: string): string
       document.querySelectorAll('.discord-dropdown-menu.open').forEach(m => m.classList.remove('open'));
     }
   });
+  function switchTab(platform) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + platform).classList.add('active');
+    event.currentTarget.classList.add('active');
+  }
 </script>
 </body>
 </html>`;
@@ -251,9 +282,10 @@ const NAV = `
     <span>${APP_NAME}</span>
   </div>
   <div class="nav-links">
+    <a href="/#platform">Platform</a>
+    <a href="/#cara-pakai">Cara Pakai</a>
     <a href="/#fitur">Fitur</a>
     <a href="/#game">Game</a>
-    <a href="/#platform">Platform</a>
     <a href="/terms">Syarat</a>
     <a href="/privacy">Privasi</a>
   </div>
@@ -272,9 +304,10 @@ const FOOTER = `
       <p class="footer-desc">Top up game cepat, langsung dari chat — tanpa perlu buka web atau aplikasi tambahan.</p>
     </div>
     <div class="footer-links">
+      <a href="/#platform">Platform</a>
+      <a href="/#cara-pakai">Cara Pakai</a>
       <a href="/#fitur">Fitur</a>
       <a href="/#game">Game</a>
-      <a href="/#platform">Platform</a>
       <a href="/terms">Syarat & Ketentuan</a>
       <a href="/privacy">Kebijakan Privasi</a>
     </div>
@@ -329,6 +362,83 @@ ${NAV}
       <p>Menu bernomor yang simpel. Cocok untuk siapa saja, tanpa perlu install app baru.</p>
     </div>
     -->
+  </div>
+</section>
+
+<!-- Tutorial -->
+<section class="tutorial" id="cara-pakai">
+  <p class="section-label">Cara Pakai</p>
+  <h2 class="section-title">Mulai Top Up dalam 3 Langkah</h2>
+  <p class="section-sub">Pilih platform kamu dan ikuti langkah berikut — selesai dalam hitungan menit.</p>
+  <div class="tutorial-tabs">
+    <button class="tab-btn active" onclick="switchTab('telegram')">✈️ Telegram</button>
+    <button class="tab-btn" onclick="switchTab('discord')">🎮 Discord</button>
+  </div>
+
+  <div id="tab-telegram" class="tab-panel active">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Buka bot di Telegram</h4>
+          <p>Cari <code>@yokmabarbot</code> di Telegram atau langsung klik tombol "Mulai di Telegram" di atas.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Ketik /topup</h4>
+          <p>Pilih game dari daftar yang muncul, atau tap <code>🔍 Cari game lain</code> jika gamenya tidak ada di daftar utama.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Pilih nominal & masukkan ID game</h4>
+          <p>Tap nominal yang kamu mau, lalu masukkan User ID game kamu. Bot akan tampilkan konfirmasi sebelum lanjut.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Bayar & selesai</h4>
+          <p>Pilih metode pembayaran (QRIS, GoPay, OVO, Dana, atau transfer bank), selesaikan pembayaran, dan item langsung masuk ke akun game kamu.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-discord" class="tab-panel">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Invite bot atau gabung server</h4>
+          <p>Tambahkan YokMabar Bot ke server Discord kamu, atau gabung ke server komunitas YokMabar lewat tombol Discord di atas.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Ketik /topup</h4>
+          <p>Gunakan slash command <code>/topup</code> di channel manapun. Autocomplete akan muncul untuk membantu pilih game dan nominal.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Isi User ID di form popup</h4>
+          <p>Setelah pilih game dan nominal, sebuah form kecil akan muncul. Masukkan User ID dan Server ID game kamu di sana.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Konfirmasi & bayar</h4>
+          <p>Cek detail pesanan di embed konfirmasi, pilih metode bayar, selesaikan pembayaran. Item masuk otomatis — semua pesan hanya terlihat oleh kamu.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
