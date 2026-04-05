@@ -47,7 +47,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-yokmabar}:${POSTGRES_PASSWORD:-secret}@postgres:5432/${POSTGRES_DB:-topup_db}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     ports:
       - "${PORT:-4000}:${PORT:-4000}"
     depends_on:
