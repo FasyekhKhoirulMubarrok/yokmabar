@@ -52,6 +52,7 @@ function landingLayout(title: string, description: string, body: string): string
   <meta name="twitter:description" content="${description}">
   <link rel="icon" type="image/png" href="/images/logo-emblem.png">
   <link rel="canonical" href="${APP_URL}">
+  <meta name="google-site-verification" content="ZZEuN4QjpnTx364LD2E4Lbnduea7QPB12gyg72Wsck4">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
