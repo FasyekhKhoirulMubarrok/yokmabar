@@ -59,7 +59,7 @@ function landingLayout(title: string, description: string, body: string): string
     "@type": "WebSite",
     "name": "${APP_NAME}",
     "url": "${APP_URL}",
-    "description": "Top up game Mobile Legends, Free Fire, Genshin Impact, dan puluhan game lainnya langsung dari Telegram atau Discord. Cepat, aman, tanpa ribet.",
+    "description": "Top up game Mobile Legends, Free Fire, Genshin Impact, dan puluhan game lainnya dengan harga murah dari supplier resmi. Proses instan via Telegram atau Discord.",
     "potentialAction": {
       "@type": "SearchAction",
       "target": "${APP_URL}/?q={search_term_string}",
@@ -96,7 +96,7 @@ function landingLayout(title: string, description: string, body: string): string
       "url": "${APP_URL}"
     },
     "name": "Top Up Game via Chat Bot",
-    "description": "Layanan top up game digital via bot Telegram dan Discord. Tersedia untuk Mobile Legends, Free Fire, Genshin Impact, PUBG Mobile, Valorant, dan ratusan game lainnya.",
+    "description": "Layanan top up game digital harga murah via bot Telegram dan Discord. Tersedia untuk Mobile Legends, Free Fire, Genshin Impact, PUBG Mobile, Valorant, dan ratusan game lainnya. Harga langsung dari supplier resmi Digiflazz.",
     "areaServed": "ID",
     "availableChannel": [
       {
@@ -387,9 +387,9 @@ ${NAV}
 
 <!-- Hero -->
 <section class="hero">
-  <div class="hero-badge">⚡ Top up instan, langsung di chat</div>
-  <h1>Top Up Game Kamu<br>Langsung dari <span class="highlight">Chat</span></h1>
-  <p>Tanpa buka web, tanpa ribet. Top up Mobile Legends, Free Fire, dan puluhan game lain lewat Telegram atau Discord — dalam hitungan menit.</p>
+  <div class="hero-badge">⚡ Harga kompetitif, proses instan</div>
+  <h1>Top Up Game Murah<br>Langsung dari <span class="highlight">Chat</span></h1>
+  <p>Harga terjangkau dari supplier resmi. Top up Mobile Legends, Free Fire, dan puluhan game lain lewat Telegram atau Discord — tanpa buka web, dalam hitungan menit.</p>
   <div class="hero-actions">
     <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Mulai di Telegram</a>
     ${discordDropdownBtn()}
@@ -506,8 +506,15 @@ ${NAV}
 <section class="features" id="fitur">
   <p class="section-label">Keunggulan</p>
   <h2 class="section-title">Kenapa Pilih ${APP_NAME}?</h2>
-  <p class="section-sub">Dirancang untuk kecepatan dan kemudahan — dari gamer, untuk gamer.</p>
+  <p class="section-sub">Harga murah, proses cepat, langsung dari supplier resmi — dari gamer, untuk gamer.</p>
   <div class="feature-grid">
+    <div class="feature-item">
+      <div class="feature-icon">💰</div>
+      <div>
+        <h3>Harga Kompetitif</h3>
+        <p>Harga langsung dari supplier resmi Digiflazz — transparan, tanpa biaya tersembunyi.</p>
+      </div>
+    </div>
     <div class="feature-item">
       <div class="feature-icon">⚡</div>
       <div>
@@ -576,7 +583,7 @@ ${NAV}
 <!-- CTA -->
 <section class="cta">
   <h2>Siap Top Up Sekarang?</h2>
-  <p>Mulai dari bot favoritmu — gratis, tanpa daftar, langsung gas!</p>
+  <p>Harga murah, proses instan — mulai dari bot favoritmu, tanpa daftar, langsung gas!</p>
   <div class="cta-buttons">
     <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Buka Telegram</a>
     ${discordDropdownBtn()}
@@ -587,8 +594,8 @@ ${FOOTER}
 `;
 
   return c.html(landingLayout(
-    `${APP_NAME} — Top Up Game Cepat & Mudah`,
-    "Top up Mobile Legends, Free Fire, Genshin Impact, dan game lainnya langsung dari Telegram atau Discord. Cepat, aman, tanpa ribet.",
+    `${APP_NAME} — Top Up Game Murah, Cepat & Mudah`,
+    "Top up Mobile Legends, Free Fire, Genshin Impact, dan game lainnya dengan harga murah langsung dari supplier resmi. Proses instan via Telegram atau Discord.",
     body,
   ));
 });
