@@ -5,6 +5,7 @@ import {
 } from "@grammyjs/conversations";
 import { InputFile } from "grammy";
 import { db } from "../../../db/client.js";
+import { redis } from "../../../db/redis.js";
 import { formatNominalLabel, generateQrBuffer, getBrandEmoji, stripBrandPrefix } from "../../../utils/formatter.js";
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
@@ -379,12 +380,25 @@ async function stepOfferPoints(
 
 // ─── Main Scene ───────────────────────────────────────────────────────────────
 
+// TTL marker sedikit lebih panjang dari session (25 menit) agar fallback
+// masih bisa mendeteksi expiry saat user kembali setelah 20 menit idle.
+const MARKER_TTL_SECONDS = 25 * 60;
+const conversationMarkerKey = (chatId: number) => `tg:session:had:${chatId}`;
+
 export async function topUpScene(
   conversation: TopUpConversation,
   ctx: Context,
 ): Promise<void> {
   const telegramUser = ctx.from;
   if (telegramUser === undefined) return;
+
+  // Set marker — dihapus saat scene selesai (normal atau cancel),
+  // atau expire sendiri (25 menit) jika user tiba-tiba berhenti
+  await conversation.external(() =>
+    redis.setex(conversationMarkerKey(telegramUser.id), MARKER_TTL_SECONDS, "1"),
+  );
+  const clearMarker = () =>
+    conversation.external(() => redis.del(conversationMarkerKey(telegramUser.id)));
 
   // Dapatkan/buat user di DB
   const userId = await conversation.external(() =>
@@ -407,6 +421,7 @@ export async function topUpScene(
   if (brand === null) {
     brand = await stepSearchGame(conversation, ctx);
     if (brand === null) {
+      await clearMarker();
       await ctx.reply("😊 Ketik /topup untuk mulai lagi ya!");
       return;
     }
@@ -419,6 +434,7 @@ export async function topUpScene(
   // ── Step 3: Pilih nominal ───────────────────────────────────────────────────
   const product = await stepSelectNominal(conversation, ctx, brand, activeEvent);
   if (product === null) {
+    await clearMarker();
     await ctx.reply("😊 Order dibatalkan. Ketik /topup untuk mulai lagi!");
     return;
   }
@@ -441,6 +457,7 @@ export async function topUpScene(
     effectivePrice, eventPricing, inquiryUsername,
   );
   if (!confirmed) {
+    await clearMarker();
     await ctx.reply("😊 Order dibatalkan. Ketik /topup untuk mulai lagi!");
     return;
   }
@@ -467,6 +484,7 @@ export async function topUpScene(
     );
   } catch (err) {
     console.error("[telegram] createOrder error:", err);
+    await clearMarker();
     await ctx.reply("😅 Ups, ada gangguan sebentar.\nCoba lagi dalam beberapa menit ya!");
     return;
   }
@@ -479,6 +497,7 @@ export async function topUpScene(
         enqueueOrderProcessing(order.id),
       ]),
     );
+    await clearMarker();
     await ctx.reply(
       `✅ <b>Order diproses!</b>\n` +
       `Order    : #${order.paymentRef}\n` +
@@ -503,6 +522,7 @@ export async function topUpScene(
     );
   } catch (err) {
     console.error("[telegram] createInvoice error:", err);
+    await clearMarker();
     await ctx.reply(
       "😅 Ups, ada gangguan sebentar.\nCoba lagi dalam beberapa menit ya!",
     );
@@ -532,4 +552,6 @@ export async function topUpScene(
   } else {
     await ctx.reply(`${caption}\n${invoice.paymentUrl}`, { parse_mode: "HTML" });
   }
+
+  await clearMarker();
 }

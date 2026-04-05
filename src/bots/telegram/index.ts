@@ -1,6 +1,7 @@
-import { Bot, session } from "grammy";
+import { Bot, session, type StorageAdapter } from "grammy";
 import { conversations, createConversation } from "@grammyjs/conversations";
 import { config } from "../../config.js";
+import { redis } from "../../db/redis.js";
 import { type BotContext, topUpScene } from "./scenes/topup.scene.js";
 import { feedbackScene } from "./scenes/feedback.scene.js";
 import {
@@ -16,12 +17,37 @@ import {
 
 export const telegramBot = new Bot<BotContext>(config.TELEGRAM_BOT_TOKEN);
 
+// ─── Redis Session Storage ────────────────────────────────────────────────────
+
+const SESSION_TTL_SECONDS = 20 * 60; // 20 menit
+const SESSION_KEY_PREFIX = "tg:session:";
+
+function makeRedisStorage<T>(): StorageAdapter<T> {
+  return {
+    read: async (key: string): Promise<T | undefined> => {
+      const val = await redis.get(`${SESSION_KEY_PREFIX}${key}`);
+      return val !== null ? (JSON.parse(val) as T) : undefined;
+    },
+    write: async (key: string, value: T): Promise<void> => {
+      await redis.setex(
+        `${SESSION_KEY_PREFIX}${key}`,
+        SESSION_TTL_SECONDS,
+        JSON.stringify(value),
+      );
+    },
+    delete: async (key: string): Promise<void> => {
+      await redis.del(`${SESSION_KEY_PREFIX}${key}`);
+    },
+  };
+}
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
 // 1. Session — wajib sebelum conversations
 telegramBot.use(
   session<Record<string, never>, BotContext>({
     initial: () => ({}),
+    storage: makeRedisStorage(),
   }),
 );
 
@@ -44,9 +70,19 @@ registerAdminFeedbackReplyHandler(telegramBot);
 // ─── Fallback ─────────────────────────────────────────────────────────────────
 
 telegramBot.on("message", async (ctx) => {
-  await ctx.reply(
-    "😊 Halo! Ketik /start atau /topup untuk mulai top up ya.",
-  );
+  const markerKey = `tg:session:had:${ctx.chat.id}`;
+  const hadSession = await redis.exists(markerKey);
+
+  if (hadSession) {
+    await redis.del(markerKey);
+    await ctx.reply(
+      "⏰ Sesi kamu sudah berakhir karena tidak aktif selama 20 menit.\n" +
+      "Ketik /topup untuk mulai top up lagi ya! 😊",
+    );
+    return;
+  }
+
+  await ctx.reply("😊 Halo! Ketik /start atau /topup untuk mulai top up ya.");
 });
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
