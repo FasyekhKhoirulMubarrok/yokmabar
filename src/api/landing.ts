@@ -52,6 +52,65 @@ function landingLayout(title: string, description: string, body: string): string
   <meta name="twitter:description" content="${description}">
   <link rel="icon" type="image/png" href="/images/logo-emblem.png">
   <link rel="canonical" href="${APP_URL}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "${APP_NAME}",
+    "url": "${APP_URL}",
+    "description": "Top up game Mobile Legends, Free Fire, Genshin Impact, dan puluhan game lainnya langsung dari Telegram atau Discord. Cepat, aman, tanpa ribet.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "${APP_URL}/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "${APP_NAME}",
+    "url": "${APP_URL}",
+    "logo": "${APP_URL}/images/logo-full.png",
+    "sameAs": [
+      "https://t.me/yokmabarbot",
+      "${DISCORD_SERVER_URL}"
+    ],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "availableLanguage": "Indonesian"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "serviceType": "Top Up Game Digital",
+    "provider": {
+      "@type": "Organization",
+      "name": "${APP_NAME}",
+      "url": "${APP_URL}"
+    },
+    "name": "Top Up Game via Chat Bot",
+    "description": "Layanan top up game digital via bot Telegram dan Discord. Tersedia untuk Mobile Legends, Free Fire, Genshin Impact, PUBG Mobile, Valorant, dan ratusan game lainnya.",
+    "areaServed": "ID",
+    "availableChannel": [
+      {
+        "@type": "ServiceChannel",
+        "serviceUrl": "https://t.me/yokmabarbot",
+        "serviceType": "Telegram Bot"
+      },
+      {
+        "@type": "ServiceChannel",
+        "serviceUrl": "${DISCORD_SERVER_URL}",
+        "serviceType": "Discord Bot"
+      }
+    ]
+  }
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -531,6 +590,44 @@ ${FOOTER}
     "Top up Mobile Legends, Free Fire, Genshin Impact, dan game lainnya langsung dari Telegram atau Discord. Cepat, aman, tanpa ribet.",
     body,
   ));
+});
+
+// ─── GET /sitemap.xml ────────────────────────────────────────────────────────
+
+landing.get("/sitemap.xml", (c) => {
+  const pages = [
+    { url: "/",        priority: "1.0", changefreq: "weekly"  },
+    { url: "/terms",   priority: "0.3", changefreq: "monthly" },
+    { url: "/privacy", priority: "0.3", changefreq: "monthly" },
+  ];
+
+  const urls = pages.map(({ url, priority, changefreq }) => `
+  <url>
+    <loc>${APP_URL}${url}</loc>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`).join("");
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}
+</urlset>`;
+
+  return c.body(xml, 200, { "Content-Type": "application/xml" });
+});
+
+// ─── GET /robots.txt ──────────────────────────────────────────────────────────
+
+landing.get("/robots.txt", (c) => {
+  const txt = `User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /webhook/
+Disallow: /oauth/
+Disallow: /health
+
+Sitemap: ${APP_URL}/sitemap.xml`;
+
+  return c.text(txt);
 });
 
 // ─── GET /terms — Syarat & Ketentuan ─────────────────────────────────────────
