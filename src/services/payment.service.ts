@@ -91,7 +91,7 @@ export async function createInvoice(
       first_name: input.customerName.slice(0, 50),
       email: input.customerEmail,
     },
-    qris: { acquirer: "gopay" },
+    qris: {},
   };
 
   const response = await fetch(`${MIDTRANS_API_BASE}/v2/charge`, {
