@@ -246,8 +246,12 @@ export async function checkGameId(
       const data = response.data;
       console.log("[checkGameId] attempt", attempt + 1, JSON.stringify(data));
 
-      if (data?.status === "Sukses" && data.customer_name) {
-        return { found: true, username: data.customer_name };
+      if (data?.status === "Sukses") {
+        const username = data.customer_name
+          ?? data.sn?.match(/Username\s+(.+?)\s*(?:\/|$)/)?.[1]
+          ?? data.sn
+          ?? "Terverifikasi";
+        return { found: true, username };
       }
       if (data?.status === "Gagal") {
         return { found: false };
