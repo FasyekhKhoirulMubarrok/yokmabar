@@ -51,4 +51,38 @@ stats.get("/sync/status", async (c) => {
   return c.json({ cooldown: cooldown > 0 ? cooldown : 0 });
 });
 
+// GET /api/admin/orders?page=1&status=&search=
+stats.get("/orders", async (c) => {
+  const page = Math.max(1, parseInt(c.req.query("page") ?? "1"));
+  const status = c.req.query("status") ?? "";
+  const search = c.req.query("search") ?? "";
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const where = {
+    ...(status ? { status: status as never } : {}),
+    ...(search ? {
+      OR: [
+        { id: { contains: search } },
+        { gameUserId: { contains: search } },
+        { itemName: { contains: search, mode: "insensitive" as never } },
+        { user: { username: { contains: search, mode: "insensitive" as never } } },
+      ],
+    } : {}),
+  };
+
+  const [orders, total] = await Promise.all([
+    db.order.findMany({
+      where,
+      include: { user: { select: { username: true, platform: true, platformUserId: true } } },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    db.order.count({ where }),
+  ]);
+
+  return c.json({ orders, total, page, pages: Math.ceil(total / limit) });
+});
+
 export default stats;

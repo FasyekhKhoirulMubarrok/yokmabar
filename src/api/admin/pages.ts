@@ -215,6 +215,33 @@ ${nav("dashboard")}
     </div>
     <p class="text-sm">Ambil harga terbaru dari Digiflazz dan perbarui database. Cooldown 15 menit.</p>
   </div>
+
+  <div class="card mt-1">
+    <div class="section-header">
+      <h2>Riwayat Transaksi</h2>
+      <div class="flex gap-1">
+        <input type="text" id="order-search" placeholder="Cari ID / user / item…" style="width:200px" oninput="debounceSearch()">
+        <select id="order-status" onchange="loadOrders(1)" style="width:auto">
+          <option value="">Semua Status</option>
+          <option value="PENDING">Pending</option>
+          <option value="PAID">Paid</option>
+          <option value="PROCESSING">Processing</option>
+          <option value="SUCCESS">Success</option>
+          <option value="FAILED">Failed</option>
+          <option value="EXPIRED">Expired</option>
+        </select>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Order ID</th><th>Platform</th><th>User</th><th>Item</th><th>Harga</th><th>Status</th><th>Waktu</th></tr>
+      </thead>
+      <tbody id="orders-body">
+        <tr><td colspan="7" class="text-sm" style="padding:1.5rem;text-align:center">Memuat…</td></tr>
+      </tbody>
+    </table>
+    <div id="orders-pagination" class="flex gap-1" style="margin-top:1rem;justify-content:center"></div>
+  </div>
 </div>
 
 <script>
@@ -222,7 +249,7 @@ async function loadStats() {
   const res = await apiFetch('/api/admin');
   if (!res) return;
   const d = await res.json();
-  document.getElementById('stat-balance').textContent = d.balance !== null ? 'Rp\u00a0' + d.balance.toLocaleString('id-ID') : '—';
+  document.getElementById('stat-balance').textContent = d.balance !== null ? 'Rp\u00a0' + d.balance.balance.toLocaleString('id-ID') : '—';
   document.getElementById('stat-totalOrders').textContent = d.totalOrders;
   document.getElementById('stat-successToday').textContent = d.successToday;
   document.getElementById('stat-pendingOrders').textContent = d.pendingOrders;
@@ -258,6 +285,48 @@ async function triggerSync() {
 
 loadStats();
 loadSyncStatus();
+loadOrders(1);
+
+let searchTimer;
+function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadOrders(1), 400); }
+
+const STATUS_BADGE = {
+  SUCCESS: 'badge-green', FAILED: 'badge-red', EXPIRED: 'badge-red',
+  PENDING: 'badge-yellow', PAID: 'badge-yellow', PROCESSING: 'badge-blue',
+};
+const PLATFORM_BADGE = { TELEGRAM: 'badge-blue', DISCORD: 'badge-yellow', WHATSAPP: 'badge-green' };
+
+async function loadOrders(page) {
+  const status = document.getElementById('order-status').value;
+  const search = document.getElementById('order-search').value.trim();
+  const params = new URLSearchParams({ page, ...(status ? { status } : {}), ...(search ? { search } : {}) });
+  const res = await apiFetch('/api/admin/orders?' + params);
+  if (!res) return;
+  const d = await res.json();
+  const tbody = document.getElementById('orders-body');
+  if (d.orders.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-sm" style="padding:1.5rem;text-align:center">Tidak ada transaksi.</td></tr>';
+    document.getElementById('orders-pagination').innerHTML = '';
+    return;
+  }
+  tbody.innerHTML = d.orders.map(o => \`<tr>
+    <td style="font-family:monospace;font-size:0.78rem">\${esc(o.id.slice(0,8))}…</td>
+    <td><span class="badge \${PLATFORM_BADGE[o.user.platform] ?? 'badge-gray'}">\${o.user.platform}</span></td>
+    <td class="text-sm">\${esc(o.user.username ?? o.user.platformUserId)}</td>
+    <td class="text-sm">\${esc(o.itemName)}</td>
+    <td class="text-sm">Rp \${o.amount.toLocaleString('id-ID')}</td>
+    <td><span class="badge \${STATUS_BADGE[o.status] ?? 'badge-gray'}">\${o.status}</span></td>
+    <td class="text-sm">\${new Date(o.createdAt).toLocaleString('id-ID')}</td>
+  </tr>\`).join('');
+
+  const pagination = document.getElementById('orders-pagination');
+  if (d.pages <= 1) { pagination.innerHTML = ''; return; }
+  let pages = '';
+  for (let i = 1; i <= d.pages; i++) {
+    pages += \`<button class="btn btn-sm \${i === d.page ? 'btn-primary' : 'btn-ghost'}" onclick="loadOrders(\${i})">\${i}</button>\`;
+  }
+  pagination.innerHTML = pages;
+}
 </script>`;
   return layout("Dashboard", body);
 }
