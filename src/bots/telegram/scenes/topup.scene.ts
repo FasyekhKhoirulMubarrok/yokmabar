@@ -9,7 +9,7 @@ import { redis } from "../../../db/redis.js";
 import { formatNominalLabel, generateQrBuffer, getBrandEmoji, stripBrandPrefix } from "../../../utils/formatter.js";
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
-import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
+import { createOrder, setPaymentUrl, markAsPaid, cancelOrder } from "../../../services/order.service.js";
 import { checkGameId } from "../../../services/supplier.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
@@ -547,13 +547,19 @@ export async function topUpScene(
     `Berlaku  : 15 menit ⏰\n\n` +
     `Selesaikan pembayaran sebelum waktu habis ya!`;
 
+  const cancelKeyboard = new InlineKeyboard().text("❌ Batalkan Order", `cancel_order:${order.id}`);
+
   if (invoice.qrBuffer !== undefined) {
     await ctx.replyWithPhoto(new InputFile(invoice.qrBuffer, "qris.png"), {
       caption,
       parse_mode: "HTML",
+      reply_markup: cancelKeyboard,
     });
   } else {
-    await ctx.reply(`${caption}\n${invoice.paymentUrl}`, { parse_mode: "HTML" });
+    await ctx.reply(`${caption}\n${invoice.paymentUrl}`, {
+      parse_mode: "HTML",
+      reply_markup: cancelKeyboard,
+    });
   }
 
   await clearMarker();

@@ -162,6 +162,7 @@ enum OrderStatus {
   SUCCESS
   FAILED
   EXPIRED
+  CANCELLED
 }
 
 enum PointType {

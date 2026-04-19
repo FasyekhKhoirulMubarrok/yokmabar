@@ -1,6 +1,7 @@
 import { InlineKeyboard, type Bot } from "grammy";
 import { db } from "../../db/client.js";
 import { redis } from "../../db/redis.js";
+import { cancelOrder } from "../../services/order.service.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { getPointSummary } from "../../services/point.service.js";
 import { getFeedbackWithUser, addAdminReply, addUserReply, closeFeedback, normalizeTicketId } from "../../services/feedback.service.js";
@@ -281,6 +282,33 @@ async function handleCloseFeedback(ctx: { reply: (text: string, opts?: object) =
     console.error("[telegram] close feedback error:", err);
     await ctx.reply("😅 Gagal menutup tiket. Coba lagi ya!");
   }
+}
+
+// ─── Cancel Order ─────────────────────────────────────────────────────────────
+
+export function registerCancelOrderHandler(bot: Bot<BotContext>): void {
+  bot.callbackQuery(/^cancel_order:.+$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const orderId = ctx.callbackQuery.data.replace("cancel_order:", "");
+    const order = await cancelOrder(orderId);
+
+    if (order === null) {
+      await ctx.editMessageCaption?.({ caption: "😅 Order tidak ditemukan." });
+      await ctx.editMessageText?.("😅 Order tidak ditemukan.");
+      return;
+    }
+
+    if (order.status !== "CANCELLED") {
+      await ctx.answerCallbackQuery("Order sudah diproses, tidak bisa dibatalkan.");
+      return;
+    }
+
+    try {
+      await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard() });
+    } catch { /* pesan mungkin sudah berubah */ }
+
+    await ctx.reply("😊 Order berhasil dibatalkan. Ketik /topup untuk order baru ya!");
+  });
 }
 
 // ─── /poin ────────────────────────────────────────────────────────────────────

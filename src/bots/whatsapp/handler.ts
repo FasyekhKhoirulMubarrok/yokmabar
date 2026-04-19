@@ -6,7 +6,7 @@ import {
   searchProducts,
 } from "../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../services/point.service.js";
-import { createOrder, setPaymentUrl } from "../../services/order.service.js";
+import { createOrder, setPaymentUrl, cancelOrder } from "../../services/order.service.js";
 import { createInvoice } from "../../services/payment.service.js";
 import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
@@ -40,6 +40,7 @@ type WaStep =
   | "confirm"
   | "offer_points"
   | "select_payment"
+  | "awaiting_cancel"
   | "feedback_input";
 
 interface WaState {
@@ -56,6 +57,7 @@ interface WaState {
   effectivePrice?: number;      // harga setelah event pricing
   strikethroughPrice?: number;  // harga coret (untuk display)
   discountPercent?: number;     // persentase diskon
+  orderId?: string;
 }
 
 // ─── Redis State ──────────────────────────────────────────────────────────────
@@ -190,6 +192,12 @@ export async function handleWhatsAppMessage(
     return;
   }
 
+  // Batalkan order saat menunggu konfirmasi batal
+  if (state?.step === "awaiting_cancel" && /^(0|batal|cancel)$/i.test(text)) {
+    await handleAwaitingCancel(phone, state);
+    return;
+  }
+
   // Kata kunci reset
   if (/^(batal|cancel|mulai|start|menu|halo|hai|hi|hello)$/i.test(text)) {
     await sendMainMenu(phone);
@@ -232,6 +240,9 @@ export async function handleWhatsAppMessage(
       break;
     case "select_payment":
       await handleSelectPayment(phone, text, state);
+      break;
+    case "awaiting_cancel":
+      await sendWhatsApp(phone, `😊 Pembayaran sedang menunggu. Balas *0* untuk batalkan order, atau abaikan jika sudah bayar.`);
       break;
     case "feedback_input":
       await handleFeedbackInput(phone, text);
@@ -629,6 +640,21 @@ async function sendPaymentMenu(phone: string, state: WaState): Promise<void> {
   });
 }
 
+async function handleAwaitingCancel(phone: string, state: WaState): Promise<void> {
+  const orderId = state.orderId;
+  if (orderId === undefined) { await sendMainMenu(phone); return; }
+
+  await clearState(phone);
+  const order = await cancelOrder(orderId);
+
+  if (order === null || order.status !== "CANCELLED") {
+    await sendWhatsApp(phone, `😅 Order tidak bisa dibatalkan (mungkin sudah diproses). Ketik *menu* untuk kembali.`);
+    return;
+  }
+
+  await sendWhatsApp(phone, `😊 Order berhasil dibatalkan. Ketik *menu* untuk order baru ya!`);
+}
+
 async function handleSelectPayment(phone: string, text: string, state: WaState): Promise<void> {
   if (text === "0") {
     await sendMainMenu(phone);
@@ -686,7 +712,8 @@ async function handleSelectPayment(phone: string, text: string, state: WaState):
       `${invoice.paymentUrl}`;
 
     await sendWhatsApp(phone, tagihanText);
-    await clearState(phone);
+    await sendWhatsApp(phone, `Balas *0* untuk membatalkan order ini.`);
+    await setState(phone, { step: "awaiting_cancel", orderId: order.id });
   } catch {
     await sendWhatsApp(phone, `😅 Ups, ada gangguan sebentar. Coba lagi dalam beberapa menit ya!`);
     await sendMainMenu(phone);

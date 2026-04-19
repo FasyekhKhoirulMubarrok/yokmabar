@@ -38,12 +38,13 @@ export interface CreateOrderInput {
 //  PENDING → EXPIRED
 
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  PENDING: ["PAID", "EXPIRED"],
+  PENDING: ["PAID", "EXPIRED", "CANCELLED"],
   PAID: ["PROCESSING"],
   PROCESSING: ["SUCCESS", "FAILED"],
   SUCCESS: [],
   FAILED: [],
   EXPIRED: [],
+  CANCELLED: [],
 };
 
 function assertTransition(current: OrderStatus, next: OrderStatus): void {
@@ -199,12 +200,27 @@ export async function markAsExpired(orderId: string): Promise<Order | null> {
   const order = await db.order.findUnique({ where: { id: orderId } });
   if (order === null) return null;
 
-  // Jika sudah bukan PENDING, berarti sudah dibayar — jangan expire
+  // Jika sudah bukan PENDING (dibayar, cancelled, dll) — jangan expire
   if (order.status !== "PENDING") return order;
 
   return db.order.update({
     where: { id: orderId },
     data: { status: "EXPIRED" },
+  });
+}
+
+/**
+ * PENDING → CANCELLED
+ * Dipanggil saat user tekan tombol batal sebelum bayar.
+ */
+export async function cancelOrder(orderId: string): Promise<Order | null> {
+  const order = await db.order.findUnique({ where: { id: orderId } });
+  if (order === null) return null;
+  if (order.status !== "PENDING") return order;
+
+  return db.order.update({
+    where: { id: orderId },
+    data: { status: "CANCELLED" },
   });
 }
 

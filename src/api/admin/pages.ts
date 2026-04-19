@@ -229,6 +229,7 @@ ${nav("dashboard")}
           <option value="SUCCESS">Success</option>
           <option value="FAILED">Failed</option>
           <option value="EXPIRED">Expired</option>
+          <option value="CANCELLED">Cancelled</option>
         </select>
       </div>
     </div>
@@ -293,6 +294,7 @@ function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(
 const STATUS_BADGE = {
   SUCCESS: 'badge-green', FAILED: 'badge-red', EXPIRED: 'badge-red',
   PENDING: 'badge-yellow', PAID: 'badge-yellow', PROCESSING: 'badge-blue',
+  CANCELLED: 'badge-gray',
 };
 const PLATFORM_BADGE = { TELEGRAM: 'badge-blue', DISCORD: 'badge-yellow', WHATSAPP: 'badge-green' };
 
