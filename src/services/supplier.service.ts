@@ -91,6 +91,8 @@ async function digiflazzPost<T>(
   });
 
   if (!response.ok) {
+    const body = await response.text();
+    console.error("[digiflazz] HTTP error:", response.status, body);
     throw new SupplierError(
       `Digiflazz API error: HTTP ${response.status}`,
       "REQUEST_FAILED",
