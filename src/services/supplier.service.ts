@@ -84,11 +84,15 @@ async function digiflazzPost<T>(
   endpoint: string,
   body: Record<string, unknown>,
 ): Promise<T> {
+  console.log("[digiflazz] POST", endpoint, JSON.stringify(body));
   const response = await fetch(`${DIGIFLAZZ_BASE_URL}${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+  const responseText = await response.text();
+  console.log("[digiflazz] response", response.status, responseText);
 
   if (!response.ok) {
     throw new SupplierError(
@@ -97,7 +101,7 @@ async function digiflazzPost<T>(
     );
   }
 
-  return response.json() as Promise<T>;
+  return JSON.parse(responseText) as T;
 }
 
 // ─── Top Up ───────────────────────────────────────────────────────────────────
@@ -217,11 +221,13 @@ export async function checkGameId(
   gameUserId: string,
   gameServerId: string | null,
 ): Promise<InquiryResult> {
+  console.log("[checkGameId] skuCode:", skuCode, "userId:", gameUserId, "serverId:", gameServerId);
   if (skuCode === null) return null;
 
   const customerNo = gameServerId !== null ? `${gameUserId}.${gameServerId}` : gameUserId;
   const refId = `inq-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const sign = createTransactionSign(refId);
+  console.log("[checkGameId] customerNo:", customerNo, "refId:", refId, "sign:", sign);
 
   try {
     const response = await digiflazzPost<{ data: DigiflazzTransactionData }>(
