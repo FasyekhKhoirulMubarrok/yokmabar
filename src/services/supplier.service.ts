@@ -70,6 +70,15 @@ function createTransactionSign(refId: string): string {
 }
 
 /**
+ * Signature untuk inquiry game ID:
+ * MD5(username + apiKey + "inq")
+ */
+function createInquirySign(): string {
+  const raw = `${config.DIGIFLAZZ_USERNAME}${config.DIGIFLAZZ_API_KEY}inq`;
+  return createHash("md5").update(raw).digest("hex");
+}
+
+/**
  * Signature untuk cek saldo:
  * MD5(username + apiKey + "depo")
  */
@@ -250,7 +259,7 @@ export async function checkGameId(
     gameServerId !== null ? `${gameUserId}.${gameServerId}` : gameUserId;
 
   const refId = `inq-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const sign = createTransactionSign(refId);
+  const sign = createInquirySign();
 
   try {
     const response = await digiflazzPost<{ data: DigiflazzTransactionData }>(
