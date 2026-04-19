@@ -66,7 +66,6 @@ export interface DigiflazzWebhookPayload {
  */
 function createTransactionSign(refId: string): string {
   const raw = `${config.DIGIFLAZZ_USERNAME}${config.DIGIFLAZZ_API_KEY}${refId}`;
-  console.log("[sign] username:", config.DIGIFLAZZ_USERNAME, "| apiKey:", config.DIGIFLAZZ_API_KEY, "| refId:", refId, "| raw length:", raw.length);
   return createHash("md5").update(raw).digest("hex");
 }
 
@@ -92,8 +91,6 @@ async function digiflazzPost<T>(
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    console.error("[digiflazz] HTTP error:", response.status, body);
     throw new SupplierError(
       `Digiflazz API error: HTTP ${response.status}`,
       "REQUEST_FAILED",
@@ -119,7 +116,6 @@ export async function topUp(input: TopUpInput): Promise<TopUpResult> {
   const response = await digiflazzPost<{ data: DigiflazzTransactionData }>(
     "/transaction",
     {
-      commands: "top-up",
       username: config.DIGIFLAZZ_USERNAME,
       buyer_sku_code: input.buyerSkuCode,
       customer_no: input.customerNo,
@@ -211,33 +207,20 @@ export function parseWebhookStatus(
 
 // ─── Game ID Inquiry ──────────────────────────────────────────────────────────
 
-// Brand → inquiry SKU dari Digiflazz
+export type InquiryResult =
+  | { found: true; username: string }
+  | { found: false }
+  | null;
+
 const INQUIRY_SKU: Record<string, string> = {
   "free fire": "idff",
   "mobile legends": "idml",
 };
 
-export type InquiryResult =
-  | { found: true; username: string }  // ID valid
-  | { found: false }                   // ID tidak ditemukan (API merespons tapi tidak valid)
-  | null;                              // Brand tidak support inquiry, atau API error
-
-/**
- * Ambil inquiry SKU untuk brand tertentu.
- * Return null jika brand tidak support cek ID.
- */
 export function getInquirySku(brand: string): string | null {
   return INQUIRY_SKU[brand.toLowerCase()] ?? null;
 }
 
-/**
- * Cek ID game ke Digiflazz sebelum transaksi.
- *
- * Return:
- * - `{ found: true, username }` → ID valid
- * - `{ found: false }`          → API merespons tapi ID tidak ditemukan (blok transaksi)
- * - `null`                      → Brand tidak support, atau API error (jangan blok)
- */
 export async function checkGameId(
   brand: string,
   gameUserId: string,
@@ -246,10 +229,7 @@ export async function checkGameId(
   const skuCode = getInquirySku(brand);
   if (skuCode === null) return null;
 
-  // Mobile Legends: format userId.serverId
-  const customerNo =
-    gameServerId !== null ? `${gameUserId}.${gameServerId}` : gameUserId;
-
+  const customerNo = gameServerId !== null ? `${gameUserId}.${gameServerId}` : gameUserId;
   const refId = `inq-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const sign = createTransactionSign(refId);
 
@@ -257,7 +237,6 @@ export async function checkGameId(
     const response = await digiflazzPost<{ data: DigiflazzTransactionData }>(
       "/transaction",
       {
-        commands: "top-up",
         username: config.DIGIFLAZZ_USERNAME,
         buyer_sku_code: skuCode,
         customer_no: customerNo,
@@ -268,15 +247,11 @@ export async function checkGameId(
     );
 
     const data = response.data;
-    console.log("[inquiry] response:", JSON.stringify(response));
     if (data?.customer_name !== undefined && data.customer_name !== null && data.status === "Sukses") {
       return { found: true, username: data.customer_name };
     }
-    // API merespons tapi ID tidak ditemukan
     return { found: false };
-  } catch (err) {
-    console.error("[inquiry] error:", err);
-    // API error — jangan blok user
+  } catch {
     return null;
   }
 }
