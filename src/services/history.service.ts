@@ -57,6 +57,7 @@ export function formatOrderHistory(orders: OrderHistory[]): string {
     SUCCESS: "✅ Sukses",
     FAILED: "❌ Gagal",
     EXPIRED: "⏰ Kadaluarsa",
+    CANCELLED: "🚫 Dibatalkan",
   };
 
   const lines = orders.map((order, i) => {
