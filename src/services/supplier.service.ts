@@ -257,7 +257,7 @@ export async function checkGameId(
     const response = await digiflazzPost<{ data: DigiflazzTransactionData }>(
       "/transaction",
       {
-        commands: "inquiry",
+        commands: "top-up",
         username: config.DIGIFLAZZ_USERNAME,
         buyer_sku_code: skuCode,
         customer_no: customerNo,
