@@ -27,7 +27,7 @@ import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
-import { checkGameId, getInquirySku } from "../../../services/supplier.service.js";
+import { checkGameId } from "../../../services/supplier.service.js";
 import { getActiveEvent, applyEventPricing, eventAppliesToItem } from "../../../services/event.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -236,8 +236,12 @@ export async function handleTopupModalSubmit(
   const discordUser = interaction.user;
   const userId = await getOrCreateUser(discordUser.id, discordUser.username);
 
+  const inquiryProduct = await db.product.findFirst({
+    where: { brand: { equals: brand, mode: "insensitive" }, itemCode: { startsWith: "id" }, isActive: true },
+  });
+
   const [inquiryResult, pointSummary, activeEvent] = await Promise.all([
-    checkGameId(brand, gameUserId, gameServerId),
+    checkGameId(inquiryProduct?.itemCode ?? null, gameUserId, gameServerId),
     getPointSummary(userId),
     getActiveEvent(brand, product.itemCode),
   ]);

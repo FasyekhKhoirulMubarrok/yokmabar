@@ -212,21 +212,11 @@ export type InquiryResult =
   | { found: false }
   | null;
 
-const INQUIRY_SKU: Record<string, string> = {
-  "free fire": "idff",
-  "mobile legends": "idml",
-};
-
-export function getInquirySku(brand: string): string | null {
-  return INQUIRY_SKU[brand.toLowerCase()] ?? null;
-}
-
 export async function checkGameId(
-  brand: string,
+  skuCode: string | null,
   gameUserId: string,
   gameServerId: string | null,
 ): Promise<InquiryResult> {
-  const skuCode = getInquirySku(brand);
   if (skuCode === null) return null;
 
   const customerNo = gameServerId !== null ? `${gameUserId}.${gameServerId}` : gameUserId;
@@ -247,11 +237,13 @@ export async function checkGameId(
     );
 
     const data = response.data;
+    console.log("[checkGameId] response:", JSON.stringify(response));
     if (data?.customer_name !== undefined && data.customer_name !== null && data.status === "Sukses") {
       return { found: true, username: data.customer_name };
     }
     return { found: false };
-  } catch {
+  } catch (err) {
+    console.error("[checkGameId] error:", err);
     return null;
   }
 }

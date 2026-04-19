@@ -14,7 +14,7 @@ import { createFeedback, addAdminReply, addUserReply, closeFeedback, getFeedback
 import { notifyAdminFeedback, notifyAdminFeedbackUserReply, notifyUserFeedbackReply, notifyUserFeedbackClosed } from "../../services/notification.service.js";
 import { config } from "../../config.js";
 import { stripBrandPrefix } from "../../utils/formatter.js";
-import { checkGameId, getInquirySku } from "../../services/supplier.service.js";
+import { checkGameId } from "../../services/supplier.service.js";
 import { type Product } from "@prisma/client";
 import { getActiveEvent, applyEventPricing, eventAppliesToItem } from "../../services/event.service.js";
 
@@ -474,8 +474,10 @@ async function handleInputUserId(phone: string, text: string, state: WaState): P
     return;
   }
 
-  // Cek ID game untuk brand yang support inquiry
-  const inquiryResult = await checkGameId(brand, text, null);
+  const inquiryProduct = await db.product.findFirst({
+    where: { brand: { equals: brand, mode: "insensitive" }, itemCode: { startsWith: "id" }, isActive: true },
+  });
+  const inquiryResult = await checkGameId(inquiryProduct?.itemCode ?? null, text, null);
   if (inquiryResult !== null && inquiryResult.found) {
     await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
   } else if (inquiryResult !== null && !inquiryResult.found) {
@@ -497,8 +499,10 @@ async function handleInputServerId(phone: string, text: string, state: WaState):
   const brand = state.selectedBrand ?? "";
   const gameUserId = state.gameUserId ?? "";
 
-  // Cek ID game untuk brand yang support inquiry (ML: userId.serverId)
-  const inquiryResult = await checkGameId(brand, gameUserId, text);
+  const inquiryProduct = await db.product.findFirst({
+    where: { brand: { equals: brand, mode: "insensitive" }, itemCode: { startsWith: "id" }, isActive: true },
+  });
+  const inquiryResult = await checkGameId(inquiryProduct?.itemCode ?? null, gameUserId, text);
   if (inquiryResult !== null && inquiryResult.found) {
     await sendWhatsApp(phone, `✅ ID ditemukan! Username: *${inquiryResult.username}*`);
   } else if (inquiryResult !== null && !inquiryResult.found) {

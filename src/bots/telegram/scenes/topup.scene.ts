@@ -10,7 +10,7 @@ import { formatNominalLabel, generateQrBuffer, getBrandEmoji, stripBrandPrefix }
 import { getPopularBrands, getProductsByBrand, searchProducts } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
-import { checkGameId, getInquirySku } from "../../../services/supplier.service.js";
+import { checkGameId } from "../../../services/supplier.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product, type PriceEvent } from "@prisma/client";
@@ -213,7 +213,10 @@ async function stepInputUserId(
   brand: string,
 ): Promise<{ gameUserId: string; gameServerId: string | null; inquiryUsername: string | null }> {
   const needsServer = needsServerId(brand);
-  const supportsInquiry = getInquirySku(brand) !== null;
+  const inquiryProduct = await conversation.external(() =>
+    db.product.findFirst({ where: { brand: { equals: brand, mode: "insensitive" }, itemCode: { startsWith: "id" }, isActive: true } })
+  );
+  const supportsInquiry = inquiryProduct !== null;
 
   const isValorant = brand.toLowerCase() === "valorant";
   const idPromptText = isValorant
@@ -251,7 +254,7 @@ async function stepInputUserId(
     // Cek ID ke Digiflazz — wajib valid, tidak boleh lanjut jika tidak ditemukan
     await ctx.reply("🔍 Mengecek ID...");
     const result = await conversation.external(() =>
-      checkGameId(brand, gameUserId, gameServerId),
+      checkGameId(inquiryProduct?.itemCode ?? null, gameUserId, gameServerId),
     );
 
     if (result === null) {
