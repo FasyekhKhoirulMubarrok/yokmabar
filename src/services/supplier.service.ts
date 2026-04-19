@@ -224,7 +224,7 @@ export async function checkGameId(
   console.log("[checkGameId] skuCode:", skuCode, "userId:", gameUserId, "serverId:", gameServerId);
   if (skuCode === null) return null;
 
-  const customerNo = gameServerId !== null ? `${gameUserId}.${gameServerId}` : gameUserId;
+  const customerNo = gameServerId !== null ? `${gameUserId}${gameServerId}` : gameUserId;
   const refId = `inq-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const sign = createTransactionSign(refId);
   console.log("[checkGameId] customerNo:", customerNo, "refId:", refId, "sign:", sign);
@@ -243,10 +243,14 @@ export async function checkGameId(
 
     const data = response.data;
     console.log("[checkGameId] response:", JSON.stringify(response));
-    if (data?.customer_name !== undefined && data.customer_name !== null && data.status === "Sukses") {
+    if (data?.status === "Sukses" && data.customer_name !== undefined && data.customer_name !== null) {
       return { found: true, username: data.customer_name };
     }
-    return { found: false };
+    if (data?.status === "Gagal") {
+      return { found: false };
+    }
+    // Pending atau status lain — jangan blok user
+    return null;
   } catch (err) {
     console.error("[checkGameId] error:", err);
     return null;
