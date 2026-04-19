@@ -238,7 +238,6 @@ export async function checkGameId(
         customer_no: customerNo,
         ref_id: refId,
         sign,
-        testing: config.NODE_ENV !== "production",
       },
     );
 
