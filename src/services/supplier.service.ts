@@ -265,12 +265,14 @@ export async function checkGameId(
     );
 
     const data = response.data;
+    console.log("[inquiry] response:", JSON.stringify(response));
     if (data?.customer_name !== undefined && data.customer_name !== null && data.status === "Sukses") {
       return { found: true, username: data.customer_name };
     }
     // API merespons tapi ID tidak ditemukan
     return { found: false };
-  } catch {
+  } catch (err) {
+    console.error("[inquiry] error:", err);
     // API error — jangan blok user
     return null;
   }
