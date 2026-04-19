@@ -239,8 +239,8 @@ export async function checkGameId(
 
   try {
     // Kirim request, retry max 3x jika Pending (interval 2 detik)
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 3000));
 
       const response = await digiflazzPost<{ data: DigiflazzTransactionData }>("/transaction", payload);
       const data = response.data;
