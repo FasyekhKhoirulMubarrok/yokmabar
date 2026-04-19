@@ -229,27 +229,32 @@ export async function checkGameId(
   const sign = createTransactionSign(refId);
   console.log("[checkGameId] customerNo:", customerNo, "refId:", refId, "sign:", sign);
 
-  try {
-    const response = await digiflazzPost<{ data: DigiflazzTransactionData }>(
-      "/transaction",
-      {
-        username: config.DIGIFLAZZ_USERNAME,
-        buyer_sku_code: skuCode,
-        customer_no: customerNo,
-        ref_id: refId,
-        sign,
-      },
-    );
+  const payload = {
+    username: config.DIGIFLAZZ_USERNAME,
+    buyer_sku_code: skuCode,
+    customer_no: customerNo,
+    ref_id: refId,
+    sign,
+  };
 
-    const data = response.data;
-    console.log("[checkGameId] response:", JSON.stringify(response));
-    if (data?.status === "Sukses" && data.customer_name !== undefined && data.customer_name !== null) {
-      return { found: true, username: data.customer_name };
+  try {
+    // Kirim request, retry max 3x jika Pending (interval 2 detik)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+
+      const response = await digiflazzPost<{ data: DigiflazzTransactionData }>("/transaction", payload);
+      const data = response.data;
+      console.log("[checkGameId] attempt", attempt + 1, JSON.stringify(data));
+
+      if (data?.status === "Sukses" && data.customer_name) {
+        return { found: true, username: data.customer_name };
+      }
+      if (data?.status === "Gagal") {
+        return { found: false };
+      }
+      // Pending — retry
     }
-    if (data?.status === "Gagal") {
-      return { found: false };
-    }
-    // Pending atau status lain — jangan blok user
+    // Masih Pending setelah 3x retry — jangan blok user
     return null;
   } catch (err) {
     console.error("[checkGameId] error:", err);
