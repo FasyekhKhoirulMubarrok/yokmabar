@@ -70,6 +70,16 @@ function createTransactionSign(refId: string): string {
 }
 
 /**
+ * Signature untuk validasi webhook Digiflazz:
+ * MD5(username + webhookSecret + ref_id)
+ * Berbeda dari transaction sign — pakai WEBHOOK_SECRET bukan API_KEY.
+ */
+function createWebhookSign(refId: string): string {
+  const raw = `${config.DIGIFLAZZ_USERNAME}${config.DIGIFLAZZ_WEBHOOK_SECRET}${refId}`;
+  return createHash("md5").update(raw).digest("hex");
+}
+
+/**
  * Signature untuk cek saldo:
  * MD5(username + apiKey + "depo")
  */
@@ -177,7 +187,7 @@ export function validateWebhook(
     );
   }
 
-  const expectedSign = createTransactionSign(data.ref_id);
+  const expectedSign = createWebhookSign(data.ref_id);
   const receivedSign = data.sign;
 
   if (receivedSign === undefined || receivedSign !== expectedSign) {

@@ -39,10 +39,15 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
 
   let topUpResult;
   try {
+    const customerNo =
+      order.gameServerId !== null && order.gameServerId !== ""
+        ? `${order.gameUserId}${order.gameServerId}`
+        : order.gameUserId;
+
     topUpResult = await topUp({
       refId: orderId,
       buyerSkuCode: order.itemCode,
-      customerNo: order.gameUserId,
+      customerNo,
     });
   } catch (err) {
     // Digiflazz langsung return "Gagal"
