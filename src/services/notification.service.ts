@@ -75,6 +75,8 @@ async function sendDiscordDm(
     body: { recipient_id: discordUserId },
   })) as { id: string };
 
+  console.info(`[notify] Kirim DM Discord ke user ${discordUserId}, channel ${dmChannel.id}`);
+
   await rest.post(Routes.channelMessages(dmChannel.id), {
     body: { content, ...(components !== undefined && { components }) },
   });
@@ -96,7 +98,10 @@ async function sendDiscordAdminEmbed(embed: object): Promise<void> {
 async function tryEditDiscordQrMessage(orderId: string, content: string): Promise<void> {
   try {
     const token = await redis.get(`discord:qr:${orderId}`);
-    if (token === null) return;
+    if (token === null) {
+      console.warn(`[notify] discord:qr:${orderId} tidak ada di Redis — skip edit QR`);
+      return;
+    }
 
     const rest = getDiscordRest();
     await rest.patch(Routes.webhookMessage(config.DISCORD_CLIENT_ID, token), {
@@ -104,8 +109,9 @@ async function tryEditDiscordQrMessage(orderId: string, content: string): Promis
     });
 
     await redis.del(`discord:qr:${orderId}`);
-  } catch {
-    // Token sudah expired atau interaction tidak valid — abaikan
+    console.info(`[notify] Pesan QR Discord order ${orderId} berhasil diedit.`);
+  } catch (err) {
+    console.error(`[notify] Gagal edit pesan QR Discord order ${orderId}:`, err);
   }
 }
 
@@ -160,12 +166,18 @@ export async function notifySuccess(
     `Cek in-game sekarang dan langsung gas! 🚀` +
     pointLine;
 
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     sendToUser(platform, platformUserId, text),
     platform === "DISCORD"
       ? tryEditDiscordQrMessage(order.id, plainText)
       : Promise.resolve(),
   ]);
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error(`[notify] notifySuccess error (order ${order.id}):`, result.reason);
+    }
+  }
 }
 
 /**
