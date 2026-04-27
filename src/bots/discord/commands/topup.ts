@@ -16,6 +16,7 @@ import {
 } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
 import { db } from "../../../db/client.js";
+import { redis } from "../../../db/redis.js";
 import { formatNominalLabel, generateQrBuffer, stripBrandPrefix } from "../../../utils/formatter.js";
 import {
   getPopularBrands,
@@ -452,4 +453,7 @@ export async function handleTopupButton(
   } else {
     await interaction.editReply({ embeds: [tagihanEmbed], components: [linkRow] });
   }
+
+  // Simpan token agar bisa edit pesan ini saat order selesai/gagal/expired
+  await redis.set(`discord:qr:${order.id}`, interaction.token, "EX", 900);
 }

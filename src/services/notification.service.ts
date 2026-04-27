@@ -3,6 +3,7 @@ import { REST, Routes } from "discord.js";
 import { type Platform, type Order } from "@prisma/client";
 import { config } from "../config.js";
 import { stripBrandPrefix } from "../utils/formatter.js";
+import { redis } from "../db/redis.js";
 
 // ─── Clients (lazy-initialized) ───────────────────────────────────────────────
 
@@ -86,6 +87,28 @@ async function sendDiscordAdminEmbed(embed: object): Promise<void> {
   });
 }
 
+// ─── Discord Interaction Edit ─────────────────────────────────────────────────
+
+/**
+ * Edit pesan QR code asli di Discord saat order selesai/gagal/expired.
+ * Token disimpan di Redis saat QR ditampilkan, TTL 15 menit (sama dengan order).
+ */
+async function tryEditDiscordQrMessage(orderId: string, content: string): Promise<void> {
+  try {
+    const token = await redis.get(`discord:qr:${orderId}`);
+    if (token === null) return;
+
+    const rest = getDiscordRest();
+    await rest.patch(Routes.webhookMessage(config.DISCORD_CLIENT_ID, token), {
+      body: { content, embeds: [], components: [], attachments: [] },
+    });
+
+    await redis.del(`discord:qr:${orderId}`);
+  } catch {
+    // Token sudah expired atau interaction tidak valid — abaikan
+  }
+}
+
 // ─── User Notifications ───────────────────────────────────────────────────────
 
 /**
@@ -131,7 +154,18 @@ export async function notifySuccess(
     `Cek in-game sekarang dan langsung gas! 🚀` +
     pointLine;
 
-  await sendToUser(platform, platformUserId, text);
+  const plainText =
+    `🎉 **Top up berhasil!**\n` +
+    `${stripBrandPrefix(order.game, order.itemName)} sudah masuk ke akun kamu.\n` +
+    `Cek in-game sekarang dan langsung gas! 🚀` +
+    pointLine;
+
+  await Promise.allSettled([
+    sendToUser(platform, platformUserId, text),
+    platform === "DISCORD"
+      ? tryEditDiscordQrMessage(order.id, plainText)
+      : Promise.resolve(),
+  ]);
 }
 
 /**
@@ -148,7 +182,12 @@ export async function notifyFailed(
     `Tim kami sudah mendapat notifikasi dan akan segera menindaklanjuti.\n` +
     `Order : ${formatOrderRef(order.paymentRef ?? "")}`;
 
-  await sendToUser(platform, platformUserId, text);
+  await Promise.allSettled([
+    sendToUser(platform, platformUserId, text),
+    platform === "DISCORD"
+      ? tryEditDiscordQrMessage(order.id, `😔 **Top up belum berhasil diproses.**\nTim kami sudah mendapat notifikasi. Order: \`${formatOrderRef(order.paymentRef ?? "")}\``)
+      : Promise.resolve(),
+  ]);
 }
 
 /**
@@ -165,7 +204,12 @@ export async function notifyExpired(
     `Pesanan ${formatOrderRef(order.paymentRef ?? "")} sudah kadaluarsa.\n` +
     `Tenang, kamu bisa order lagi kapan saja! 😊`;
 
-  await sendToUser(platform, platformUserId, text);
+  await Promise.allSettled([
+    sendToUser(platform, platformUserId, text),
+    platform === "DISCORD"
+      ? tryEditDiscordQrMessage(order.id, `⏰ **Waktu pembayaran habis.**\nPesanan \`${formatOrderRef(order.paymentRef ?? "")}\` sudah kadaluarsa. Kamu bisa order lagi kapan saja! 😊`)
+      : Promise.resolve(),
+  ]);
 }
 
 /**
