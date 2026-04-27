@@ -92,6 +92,7 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
       order.user.platformUserId,
       pointsEarned,
       totalPoints,
+      topUpResult.sn,
     );
 
     // Beri bonus poin ke inviter jika order dari server Discord referral

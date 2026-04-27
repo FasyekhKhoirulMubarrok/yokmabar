@@ -94,6 +94,7 @@ webhookDigiflazz.post("/", async (c) => {
       user.platformUserId,
       pointsEarned,
       totalPoints,
+      data.sn,
     );
 
     console.info(`[webhook-digiflazz] Order ${order.id} → SUCCESS.`);

@@ -148,22 +148,38 @@ export async function notifySuccess(
   platformUserId: string,
   pointsEarned: number,
   totalPoints: number,
+  sn?: string,
 ): Promise<void> {
   const pointLine =
     pointsEarned > 0
       ? `\n+${pointsEarned} poin diterima · Total: ${totalPoints} poin`
       : "";
 
+  const nicknameLine =
+    sn !== undefined && sn.trim() !== ""
+      ? `\nNickname : ${sn.trim()}`
+      : "";
+
+  const itemLabel = stripBrandPrefix(order.game, order.itemName);
+
   const text =
     `🎉 <b>Top up berhasil!</b>\n` +
-    `${stripBrandPrefix(order.game, order.itemName)} sudah masuk ke akun kamu.\n` +
-    `Cek in-game sekarang dan langsung gas! 🚀` +
+    `Order    : #${order.paymentRef}\n` +
+    `Game     : ${order.game}\n` +
+    `Item     : ${itemLabel}\n` +
+    `Harga    : ${formatRupiah(order.amount)}` +
+    nicknameLine +
+    `\n\nCek in-game sekarang dan langsung gas! 🚀` +
     pointLine;
 
   const plainText =
     `🎉 **Top up berhasil!**\n` +
-    `${stripBrandPrefix(order.game, order.itemName)} sudah masuk ke akun kamu.\n` +
-    `Cek in-game sekarang dan langsung gas! 🚀` +
+    `Order    : \`#${order.paymentRef}\`\n` +
+    `Game     : ${order.game}\n` +
+    `Item     : ${itemLabel}\n` +
+    `Harga    : ${formatRupiah(order.amount)}` +
+    nicknameLine +
+    `\n\nCek in-game sekarang dan langsung gas! 🚀` +
     pointLine;
 
   const results = await Promise.allSettled([
