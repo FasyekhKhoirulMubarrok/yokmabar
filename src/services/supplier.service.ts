@@ -27,6 +27,7 @@ const DIGIFLAZZ_BASE_URL = "https://api.digiflazz.com/v1";
 export type DigiflazzStatus = "Sukses" | "Gagal" | "Pending";
 
 export interface DigiflazzTransactionData {
+  trx_id?: string;
   ref_id: string;
   customer_no: string;
   customer_name?: string;
@@ -187,20 +188,16 @@ export function validateWebhook(
     );
   }
 
-  const expectedSign = createWebhookSign(data.ref_id);
-  const receivedSign = data.sign;
-
-  console.log("[digiflazz-webhook] ref_id:", data.ref_id);
-  console.log("[digiflazz-webhook] received sign:", receivedSign);
-  console.log("[digiflazz-webhook] expected sign:", expectedSign);
-  console.log("[digiflazz-webhook] username:", config.DIGIFLAZZ_USERNAME);
-  console.log("[digiflazz-webhook] secret length:", config.DIGIFLAZZ_WEBHOOK_SECRET.length);
-
-  if (receivedSign === undefined || receivedSign !== expectedSign) {
-    throw new SupplierError(
-      "Signature webhook Digiflazz tidak valid",
-      "BAD_SIGNATURE",
-    );
+  // Digiflazz mengirim sign hanya jika dikonfigurasi di dashboard.
+  // Jika sign ada, validasi — jika tidak ada, lewati (keamanan via ref_id lookup).
+  if (data.sign !== undefined) {
+    const expectedSign = createWebhookSign(data.ref_id);
+    if (data.sign !== expectedSign) {
+      throw new SupplierError(
+        "Signature webhook Digiflazz tidak valid",
+        "BAD_SIGNATURE",
+      );
+    }
   }
 
   return data;

@@ -30,9 +30,6 @@ webhookDigiflazz.post("/", async (c) => {
     return c.json({ message: "Invalid JSON" }, 400);
   }
 
-  // ── debug: log raw payload ────────────────────────────────────────────────
-  console.log("[webhook-digiflazz] raw payload:", JSON.stringify(payload));
-
   // ── 2. Validasi signature ──────────────────────────────────────────────────
   let data: ReturnType<typeof validateWebhook>;
   try {
