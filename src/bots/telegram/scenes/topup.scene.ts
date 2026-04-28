@@ -12,6 +12,8 @@ import { getPointSummary, redeemPoints } from "../../../services/point.service.j
 import { createOrder, setPaymentUrl, markAsPaid, cancelOrder } from "../../../services/order.service.js";
 import { checkGameId } from "../../../services/supplier.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
+import { getBalance } from "../../../services/balance.service.js";
+import { notifyAdminInsufficientBalance } from "../../../services/notification.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product, type PriceEvent } from "@prisma/client";
 import { getActiveEvent, applyEventPricing, eventAppliesToItem, type EventPricing } from "../../../services/event.service.js";
@@ -509,6 +511,27 @@ export async function topUpScene(
       { parse_mode: "HTML" },
     );
     return;
+  }
+
+  // Cek saldo Digiflazz sebelum buat invoice
+  try {
+    const { balance } = await conversation.external(() => getBalance());
+    if (balance < finalAmount) {
+      await clearMarker();
+      await cancelOrder(order.id);
+      await ctx.reply("😔 Maaf, layanan top up sedang tidak tersedia saat ini.\nCoba lagi dalam beberapa saat ya!");
+      void notifyAdminInsufficientBalance(
+        "TELEGRAM",
+        String(telegramUser.id),
+        telegramUser.username ?? telegramUser.first_name,
+        product.brand,
+        product.itemName,
+        finalAmount,
+      ).catch(() => null);
+      return;
+    }
+  } catch {
+    // Jika cek saldo gagal, tetap lanjut — jangan blok user karena error internal
   }
 
   let invoice;

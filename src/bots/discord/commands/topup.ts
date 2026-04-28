@@ -25,6 +25,8 @@ import {
 } from "../../../services/product.service.js";
 import { getPointSummary, redeemPoints } from "../../../services/point.service.js";
 import { createOrder, setPaymentUrl, markAsPaid } from "../../../services/order.service.js";
+import { getBalance } from "../../../services/balance.service.js";
+import { notifyAdminInsufficientBalance } from "../../../services/notification.service.js";
 import { createInvoice } from "../../../services/payment.service.js";
 import { scheduleOrderExpiry, enqueueOrderProcessing } from "../../../jobs/queue.js";
 import { type Product } from "@prisma/client";
@@ -373,6 +375,31 @@ export async function handleTopupButton(
   }
 
   const finalAmount = Math.max(baseAmount - pointDiscount, 0);
+
+  // Cek saldo Digiflazz sebelum buat invoice
+  if (finalAmount > 0) {
+    try {
+      const { balance } = await getBalance();
+      if (balance < finalAmount) {
+        await interaction.editReply({
+          content: "😔 Maaf, layanan top up sedang tidak tersedia saat ini. Coba lagi dalam beberapa saat ya!",
+          embeds: [],
+          components: [],
+        });
+        void notifyAdminInsufficientBalance(
+          "DISCORD",
+          discordUser.id,
+          discordUser.username,
+          product.brand,
+          product.itemName,
+          finalAmount,
+        ).catch(() => null);
+        return;
+      }
+    } catch {
+      // Jika cek saldo gagal, tetap lanjut — jangan blok user karena error internal
+    }
+  }
 
   // Buat order + invoice
   let order;

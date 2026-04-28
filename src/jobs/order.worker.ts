@@ -50,7 +50,6 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
       customerNo,
     });
   } catch (err) {
-    // Digiflazz langsung return "Gagal"
     const adminNote =
       err instanceof SupplierError ? err.message : "Unknown supplier error";
 
@@ -61,7 +60,13 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
       notifyAdminOrderFailed(failed, order.user.platform, order.user.username),
     ]);
 
-    // Re-throw supaya BullMQ catat sebagai failed (dan retry jika masih ada attempts)
+    // TRANSACTION_FAILED = Digiflazz tolak transaksi (Gagal/saldo kurang/dll)
+    // → tidak ada gunanya retry, langsung selesai
+    // REQUEST_FAILED = error jaringan/HTTP → re-throw supaya BullMQ retry
+    if (err instanceof SupplierError && err.code === "TRANSACTION_FAILED") {
+      return;
+    }
+
     throw err;
   }
 

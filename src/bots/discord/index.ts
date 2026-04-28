@@ -17,6 +17,8 @@ import {
   handleUserFeedbackReplyButton,
   handleUserFeedbackReplyModalSubmit,
 } from "./commands/feedback.js";
+import { notifyUserBalanceRestored } from "../../services/notification.service.js";
+import { type Platform } from "@prisma/client";
 import { recordServerReferral } from "../../services/referral.service.js";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
@@ -111,6 +113,35 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleAdminCloseFeedbackButton(interaction);
       } else if (interaction.customId.startsWith("fb_user_reply|")) {
         await handleUserFeedbackReplyButton(interaction);
+      } else if (interaction.customId.startsWith("balance_notify|")) {
+        // Format: "balance_notify|{platform}|{platformUserId}|{username}"
+        const parts = interaction.customId.split("|");
+        const platform = parts[1] as Platform;
+        const platformUserId = parts[2] ?? "";
+        const username = parts[3] !== undefined && parts[3] !== ""
+          ? decodeURIComponent(parts[3])
+          : null;
+
+        await interaction.deferUpdate();
+        try {
+          await notifyUserBalanceRestored(platform, platformUserId);
+          await interaction.editReply({
+            embeds: interaction.message.embeds,
+            components: [{
+              type: 1,
+              components: [{
+                type: 2,
+                style: 2,
+                label: `✅ Sudah diberitahu${username !== null ? ` (@${username})` : ""}`,
+                custom_id: "balance_notify_done",
+                disabled: true,
+              }],
+            }],
+          });
+        } catch (err) {
+          console.error("[discord] balance_notify error:", err);
+          await interaction.followUp({ content: "😅 Gagal kirim notif ke user.", ephemeral: true });
+        }
       }
       return;
     }

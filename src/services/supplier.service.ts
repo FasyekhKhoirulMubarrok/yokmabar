@@ -105,7 +105,19 @@ async function digiflazzPost<T>(
   const responseText = await response.text();
   console.log("[digiflazz] response", response.status, responseText);
 
+  // HTTP 400 dari Digiflazz biasanya berarti transaksi ditolak (bukan error jaringan)
+  // Parse dulu untuk cek status sebelum lempar error
   if (!response.ok) {
+    let parsed: { data?: { status?: string; message?: string; rc?: string } } = {};
+    try { parsed = JSON.parse(responseText); } catch { /* abaikan */ }
+
+    const txStatus = parsed.data?.status;
+    const txMessage = parsed.data?.message ?? `HTTP ${response.status}`;
+
+    if (txStatus === "Gagal") {
+      throw new SupplierError(txMessage, "TRANSACTION_FAILED", parsed.data?.rc);
+    }
+
     throw new SupplierError(
       `Digiflazz API error: HTTP ${response.status}`,
       "REQUEST_FAILED",

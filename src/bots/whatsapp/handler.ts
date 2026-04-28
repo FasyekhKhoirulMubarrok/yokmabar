@@ -8,6 +8,8 @@ import {
 import { getPointSummary, redeemPoints } from "../../services/point.service.js";
 import { createOrder, setPaymentUrl, cancelOrder } from "../../services/order.service.js";
 import { createInvoice } from "../../services/payment.service.js";
+import { getBalance } from "../../services/balance.service.js";
+import { notifyAdminInsufficientBalance } from "../../services/notification.service.js";
 import { scheduleOrderExpiry } from "../../jobs/queue.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { createFeedback, addAdminReply, addUserReply, closeFeedback, getFeedbackWithUser, normalizeTicketId } from "../../services/feedback.service.js";
@@ -675,6 +677,28 @@ async function handleSelectPayment(phone: string, text: string, state: WaState):
 
   const userId = state.userId ?? (await getOrCreateUser(phone));
   const finalAmount = Math.max((state.effectivePrice ?? product.price) - (state.pointDiscount ?? 0), 0);
+
+  // Cek saldo Digiflazz sebelum buat invoice
+  if (finalAmount > 0) {
+    try {
+      const { balance } = await getBalance();
+      if (balance < finalAmount) {
+        await clearState(phone);
+        await sendWhatsApp(phone, "😔 Maaf, layanan top up sedang tidak tersedia saat ini.\nCoba lagi dalam beberapa saat ya!");
+        void notifyAdminInsufficientBalance(
+          "WHATSAPP",
+          phone,
+          null,
+          product.brand,
+          product.itemName,
+          finalAmount,
+        ).catch(() => null);
+        return;
+      }
+    } catch {
+      // Jika cek saldo gagal, tetap lanjut — jangan blok user karena error internal
+    }
+  }
 
   await sendWhatsApp(phone, `⏳ Membuat tagihan, sebentar ya...`);
 

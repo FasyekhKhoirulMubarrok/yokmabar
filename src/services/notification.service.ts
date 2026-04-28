@@ -309,6 +309,81 @@ export async function notifyAdminOrderFailed(
 }
 
 /**
+ * Notif admin saat user gagal order karena saldo Digiflazz tidak cukup.
+ * Discord embed dilengkapi tombol "Beritahu User" untuk follow-up setelah top up.
+ */
+export async function notifyAdminInsufficientBalance(
+  platform: Platform,
+  platformUserId: string,
+  username: string | null,
+  game: string,
+  itemName: string,
+  amount: number,
+): Promise<void> {
+  const waktu = formatDateTime(new Date());
+  const userLabel = username !== null ? `@${username}` : `[${platform}]`;
+
+  const telegramText =
+    `⚠️ <b>SALDO TIDAK CUKUP — Order Dibatalkan</b>\n` +
+    `User     : ${userLabel} (${platform})\n` +
+    `Game     : ${game}\n` +
+    `Item     : ${itemName}\n` +
+    `Harga    : ${formatRupiah(amount)}\n` +
+    `Waktu    : ${waktu}\n\n` +
+    `Segera top up deposit Digiflazz, lalu beritahu user untuk coba lagi!`;
+
+  const discordEmbed = {
+    color: 0xffa500,
+    title: "⚠️ Saldo Tidak Cukup — Order Dibatalkan",
+    fields: [
+      { name: "User",     value: `${userLabel} (${platform})`, inline: true },
+      { name: "Game",     value: game,                          inline: true },
+      { name: "Item",     value: itemName,                      inline: true },
+      { name: "Harga",    value: formatRupiah(amount),          inline: true },
+      { name: "Waktu",    value: waktu,                         inline: false },
+    ],
+    footer: { text: "Top up deposit Digiflazz, lalu klik Beritahu User" },
+    timestamp: new Date().toISOString(),
+  };
+
+  // Tombol follow-up: encode platform|userId|username di customId
+  const safeUsername = encodeURIComponent(username ?? "");
+  const discordComponents = [{
+    type: 1,
+    components: [
+      {
+        type: 2,
+        style: 1,
+        label: "📢 Beritahu User",
+        custom_id: `balance_notify|${platform}|${platformUserId}|${safeUsername}`,
+      },
+    ],
+  }];
+
+  await Promise.allSettled([
+    sendTelegram(config.TELEGRAM_ADMIN_CHAT_ID, telegramText),
+    getDiscordRest().post(Routes.channelMessages(config.DISCORD_ADMIN_CHANNEL_ID), {
+      body: { embeds: [discordEmbed], components: discordComponents },
+    }),
+  ]);
+}
+
+/**
+ * Kirim notif ke user bahwa layanan top up sudah tersedia kembali.
+ * Dipanggil admin via tombol "Beritahu User" di Discord.
+ */
+export async function notifyUserBalanceRestored(
+  platform: Platform,
+  platformUserId: string,
+): Promise<void> {
+  const text =
+    `✅ Halo! Layanan top up YokMabar sudah tersedia kembali.\n` +
+    `Silakan coba order lagi sekarang ya! 😊`;
+
+  await sendToUser(platform, platformUserId, text);
+}
+
+/**
  * Notif admin saat saldo Digiflazz menipis.
  */
 export async function notifyAdminLowBalance(balance: number): Promise<void> {
