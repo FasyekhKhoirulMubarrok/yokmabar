@@ -10,10 +10,13 @@ const APP_URL = config.APP_URL ?? "https://yokmabar.com";
 const DISCORD_SERVER_URL = "https://discord.gg/QSbSBBQ3C8";
 const DISCORD_INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${config.DISCORD_CLIENT_ID}&scope=bot+applications.commands&permissions=277025392640`;
 
-function discordDropdownBtn(extraClass = ""): string {
+function discordDropdownBtn(): string {
   return `
 <div class="discord-dropdown">
-  <button class="btn btn-outline${extraClass ? " " + extraClass : ""}" onclick="toggleDiscordDropdown(this)">🎮 Discord ▾</button>
+  <button class="btn btn-dc" onclick="toggleDiscordDropdown(this)">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+    Discord ▾
+  </button>
   <div class="discord-dropdown-menu">
     <a href="${DISCORD_SERVER_URL}" target="_blank" rel="noopener">
       <span class="dd-icon">🎮</span>
@@ -53,6 +56,8 @@ function landingLayout(title: string, description: string, body: string): string
   <link rel="icon" type="image/png" href="/images/logo-emblem.png">
   <link rel="canonical" href="${APP_URL}">
   <meta name="google-site-verification" content="ZZEuN4QjpnTx364LD2E4Lbnduea7QPB12gyg72Wsck4">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -96,7 +101,7 @@ function landingLayout(title: string, description: string, body: string): string
       "url": "${APP_URL}"
     },
     "name": "Top Up Game via Chat Bot",
-    "description": "Layanan top up game digital harga murah via bot Telegram dan Discord. Tersedia untuk Mobile Legends, Free Fire, Genshin Impact, PUBG Mobile, Valorant, dan ratusan game lainnya. Harga langsung dari supplier resmi Digiflazz.",
+    "description": "Layanan top up game digital harga murah via bot Telegram dan Discord. Tersedia untuk Mobile Legends, Free Fire, Genshin Impact, PUBG Mobile, Valorant, dan ratusan game lainnya.",
     "areaServed": "ID",
     "availableChannel": [
       {
@@ -113,200 +118,475 @@ function landingLayout(title: string, description: string, body: string): string
   }
   </script>
   <style>
+    /* ─── Reset ───────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     :root {
-      --primary: #f7c102;
-      --primary-dark: #d9a900;
-      --primary-glow: rgba(247,193,2,.18);
-      --primary-glow-border: rgba(247,193,2,.35);
-      --bg: #0a0a0a;
-      --bg2: #111111;
-      --bg3: #181818;
-      --card: #161616;
-      --border: #262626;
-      --text: #f0f0f0;
-      --muted: #888888;
-      --radius: 12px;
+      --y:   #FFAA00;
+      --yd:  #E09000;
+      --yl:  #FFD060;
+      --bg:  #08090F;
+      --bg1: #0E1118;
+      --bg2: #141720;
+      --bg3: #1C2030;
+      --b:   rgba(255,255,255,0.08);
+      --t:   #FFFFFF;
+      --t2:  rgba(255,255,255,0.62);
+      --t3:  rgba(255,255,255,0.32);
+      --tg:  #26A5E4;
+      --dc:  #5865F2;
+      --wa:  #25D366;
+      --green: #22C55E;
+      --r: 18px;
+      --page-pad: 20px;
+      --max: 1160px;
     }
 
-    html { scroll-behavior: smooth; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
-    a { color: var(--primary); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    img { max-width: 100%; }
-
-    /* Nav */
-    .nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(10,10,10,0.88); backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 1.5rem; height: 60px;
-      display: flex; align-items: center; gap: 1.5rem;
+    body {
+      font-family: 'Nunito', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--t);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      padding-bottom: 76px;
     }
-    .nav-brand { display: flex; align-items: center; gap: 0.6rem; margin-right: auto; }
-    .nav-brand img { height: 32px; width: auto; }
-    .nav-brand span { font-weight: 800; font-size: 1.15rem; color: #fff; }
-    .nav-links { display: flex; gap: 0.25rem; }
-    .nav-links a { color: var(--muted); font-size: 0.9rem; padding: 0.4rem 0.75rem; border-radius: 8px; transition: all .15s; }
-    .nav-links a:hover { color: #fff; background: var(--card); text-decoration: none; }
-    .nav-cta { background: var(--primary); color: #000 !important; border-radius: 8px; padding: 0.4rem 1rem !important; font-weight: 700; transition: all .15s; }
-    .nav-cta:hover { background: var(--primary-dark) !important; text-decoration: none; transform: translateY(-1px); }
+    a { text-decoration: none; }
 
-    /* Hero */
-    .hero {
-      min-height: 92vh; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      text-align: center; padding: 5rem 1.5rem 4rem;
-      background: radial-gradient(ellipse 80% 55% at 50% 0%, var(--primary-glow) 0%, transparent 70%);
+    /* ─── Ambient glows ────────────────────────────────────────────────── */
+    .ambient { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .amb { position: absolute; border-radius: 50%; filter: blur(90px); }
+    .amb-1 { width: 500px; height: 500px; background: rgba(255,170,0,0.09); top: -100px; right: -150px; }
+    .amb-2 { width: 350px; height: 350px; background: rgba(88,101,242,0.07); bottom: 30%; left: -100px; }
+    .amb-3 { width: 280px; height: 280px; background: rgba(255,170,0,0.05); bottom: 5%; right: -80px; }
+
+    .grid-bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,170,0,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,170,0,0.025) 1px, transparent 1px);
+      background-size: 56px 56px;
     }
+
+    /* ─── NAV ──────────────────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--page-pad);
+      background: rgba(8,9,15,0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--b);
+      transition: background 300ms;
+    }
+    nav.scrolled { background: rgba(8,9,15,0.98); }
+    .nav-logo { display: flex; align-items: center; }
+    .nav-logo img { height: 28px; display: block; }
+    .nav-links { display: none; list-style: none; gap: 28px; }
+    .nav-links a { font-size: 14px; font-weight: 700; color: var(--t2); transition: color 200ms; }
+    .nav-links a:hover { color: var(--y); }
+    .nav-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--y); color: #0A0A00;
+      font-size: 13px; font-weight: 800;
+      border-radius: 999px; padding: 8px 16px;
+      transition: all 200ms;
+    }
+    .nav-pill:hover { background: var(--yl); transform: translateY(-1px); }
+    .nav-pill:active { transform: scale(0.96); }
+
+    /* ─── Sticky bottom bar (mobile) ───────────────────────────────────── */
+    .sticky-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(8,9,15,0.97); backdrop-filter: blur(20px);
+      border-top: 1px solid var(--b);
+      padding: 10px var(--page-pad);
+      display: flex; gap: 10px;
+    }
+    .sb-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 13px; border-radius: 14px;
+      font-size: 14px; font-weight: 800; font-family: 'Nunito', sans-serif;
+      text-decoration: none; border: none; cursor: pointer; transition: all 200ms;
+    }
+    .sb-btn:active { transform: scale(0.96); }
+    .sb-tg { background: var(--tg); color: #fff; }
+    .sb-dc { background: var(--dc); color: #fff; }
+
+    /* ─── Layout helpers ───────────────────────────────────────────────── */
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--page-pad); }
+    section { position: relative; z-index: 1; padding: 72px 0; }
+    section.alt { background: var(--bg1); }
+
+    /* ─── Section header ───────────────────────────────────────────────── */
+    .sh { margin-bottom: 36px; }
+    .sh-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700; color: var(--y);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;
+    }
+    .sh-tag::before { content: ''; display: block; width: 16px; height: 2px; background: var(--y); border-radius: 2px; }
+    .sh-title { font-size: clamp(28px, 5vw, 48px); font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; }
+    .sh-title .y { color: var(--y); }
+    .sh-desc { font-size: 15px; color: var(--t2); line-height: 1.65; margin-top: 10px; max-width: 560px; }
+
+    /* ─── HERO ─────────────────────────────────────────────────────────── */
+    #hero { padding-top: 80px; padding-bottom: 64px; text-align: center; }
+
     .hero-badge {
-      display: inline-flex; align-items: center; gap: 0.4rem;
-      background: var(--primary-glow); border: 1px solid var(--primary-glow-border);
-      color: var(--primary); font-size: 0.82rem; font-weight: 700;
-      padding: 0.3rem 0.9rem; border-radius: 999px; margin-bottom: 1.5rem;
-      letter-spacing: .04em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,170,0,0.1); border: 1px solid rgba(255,170,0,0.22);
+      border-radius: 999px; padding: 5px 14px;
+      font-size: 11px; font-weight: 700; color: var(--y);
+      letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 24px;
     }
-    .hero h1 {
-      font-size: clamp(2.2rem, 6vw, 4rem); font-weight: 800;
-      line-height: 1.1; margin-bottom: 1.25rem; color: #fff;
-    }
-    .hero h1 .highlight { color: var(--primary); }
-    .hero p { font-size: clamp(1rem, 2vw, 1.2rem); color: var(--muted); max-width: 520px; margin-bottom: 2.5rem; }
-    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
-    .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.75rem; border-radius: var(--radius); font-weight: 700; font-size: 1rem; transition: all .15s; cursor: pointer; border: none; }
-    .btn-primary { background: var(--primary); color: #000; }
-    .btn-primary:hover { background: var(--primary-dark); text-decoration: none; color: #000; transform: translateY(-1px); box-shadow: 0 8px 28px rgba(247,193,2,.3); }
-    .btn-outline { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
-    .btn-outline:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
-    .hero-img { margin-top: 4rem; }
-    .hero-img img { height: 80px; width: auto; opacity: .9; filter: drop-shadow(0 0 18px rgba(247,193,2,.25)); }
 
-    /* Platforms */
-    .platforms { padding: 5rem 1.5rem; background: var(--bg2); }
-    .section-label { text-align: center; font-size: 0.75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--primary); margin-bottom: 1rem; }
-    .section-title { text-align: center; font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 800; color: #fff; margin-bottom: 0.75rem; }
-    .section-sub { text-align: center; color: var(--muted); max-width: 480px; margin: 0 auto 3rem; }
-    .platform-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; max-width: 900px; margin: 0 auto; }
-    .platform-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 2rem 1.5rem; text-align: center;
+    .hero-emblem {
+      width: 110px; height: 110px; border-radius: 28px;
+      background: rgba(255,170,0,0.08); border: 1px solid rgba(255,170,0,0.15);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 28px;
+      animation: pulse-emb 3s ease-in-out infinite;
     }
-    .platform-icon { font-size: 2.5rem; margin-bottom: 1rem; }
-    .platform-card h3 { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 0.4rem; }
-    .platform-card p { color: var(--muted); font-size: 0.9rem; }
-
-    /* Tutorial */
-    .tutorial { padding: 5rem 1.5rem; }
-    .tutorial-tabs { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 2.5rem; }
-    .tab-btn {
-      padding: 0.55rem 1.4rem; border-radius: 999px; font-size: 0.9rem; font-weight: 700;
-      border: 1.5px solid var(--border); background: transparent; color: var(--muted);
-      cursor: pointer; transition: all .15s;
+    @keyframes pulse-emb {
+      0%,100% { box-shadow: 0 0 24px rgba(255,170,0,0.2); }
+      50% { box-shadow: 0 0 52px rgba(255,170,0,0.45); }
     }
-    .tab-btn.active { background: var(--primary); border-color: var(--primary); color: #000; }
-    .tab-btn:not(.active):hover { border-color: var(--primary); color: var(--primary); }
-    .tab-panel { display: none; max-width: 680px; margin: 0 auto; }
-    .tab-panel.active { display: block; }
-    .steps { display: flex; flex-direction: column; gap: 1rem; }
-    .step {
-      display: flex; gap: 1rem; align-items: flex-start;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+    .hero-emblem img { width: 64px; filter: drop-shadow(0 0 18px rgba(255,170,0,0.65)); }
+
+    .hero-title {
+      font-size: clamp(36px, 8vw, 72px);
+      font-weight: 900; letter-spacing: -0.025em; line-height: 1.05; margin-bottom: 16px;
     }
-    .step-num {
-      flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 50%;
-      background: var(--primary); color: #000; font-weight: 800; font-size: 0.85rem;
-      display: flex; align-items: center; justify-content: center; margin-top: 0.1rem;
+    .hero-title .y { color: var(--y); }
+
+    .hero-desc {
+      font-size: clamp(14px, 2vw, 17px); color: var(--t2); line-height: 1.7;
+      margin: 0 auto 32px; max-width: 520px;
     }
-    .step-body h4 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
-    .step-body p { font-size: 0.875rem; color: var(--muted); }
-    .step-body code { background: var(--bg3); border: 1px solid var(--border); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.82rem; color: var(--primary); }
 
-    /* Features */
-    .features { padding: 5rem 1.5rem; }
-    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; max-width: 1000px; margin: 0 auto; }
-    .feature-item {
-      display: flex; gap: 1rem; align-items: flex-start;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 1.5rem;
-      transition: border-color .2s;
+    .hero-btns {
+      display: flex; gap: 10px; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 44px;
     }
-    .feature-item:hover { border-color: var(--border); border-left: 3px solid var(--primary); }
-    .feature-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 0.1rem; }
-    .feature-item h3 { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
-    .feature-item p { color: var(--muted); font-size: 0.875rem; }
 
-    /* Games */
-    .games { padding: 5rem 1.5rem; background: var(--bg2); }
-    .games-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; max-width: 700px; margin: 0 auto; }
-    .game-tag {
-      background: var(--bg3); border: 1px solid var(--border); border-radius: 999px;
-      padding: 0.5rem 1.2rem; font-size: 0.9rem; font-weight: 500; color: var(--text);
-      transition: all .15s;
+    /* ─── Buttons ──────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Nunito', sans-serif; font-weight: 800;
+      border: none; border-radius: 999px; cursor: pointer;
+      text-decoration: none; transition: all 200ms;
+      font-size: 15px; padding: 13px 26px;
     }
-    .game-tag:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); }
-
-    /* CTA */
-    .cta {
-      padding: 6rem 1.5rem; text-align: center;
-      background: radial-gradient(ellipse 70% 80% at 50% 100%, var(--primary-glow) 0%, transparent 70%);
+    .btn:active { transform: scale(0.96); }
+    .btn-tg { background: var(--tg); color: #fff; }
+    .btn-tg:hover { background: #1a8fc9; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(38,165,228,0.35); }
+    .btn-dc { background: var(--dc); color: #fff; }
+    .btn-dc:hover { background: #4752c4; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(88,101,242,0.35); }
+    .btn-ghost {
+      background: transparent; color: var(--y);
+      border: 1.5px solid rgba(255,170,0,0.4); padding: 12px 22px; font-size: 14px;
     }
-    .cta h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; color: #fff; margin-bottom: 1rem; }
-    .cta p { color: var(--muted); max-width: 440px; margin: 0 auto 2.5rem; font-size: 1.05rem; }
-    .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-ghost:hover { background: rgba(255,170,0,0.08); border-color: var(--y); }
 
-    /* Footer */
-    .footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 3rem 1.5rem 2rem; }
-    .footer-inner { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: start; }
-    .footer-brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
-    .footer-brand img { height: 28px; width: auto; }
-    .footer-brand span { font-weight: 800; color: var(--primary); }
-    .footer-desc { color: var(--muted); font-size: 0.875rem; max-width: 300px; }
-    .footer-links { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end; }
-    .footer-links a { color: var(--muted); font-size: 0.875rem; }
-    .footer-links a:hover { color: var(--primary); }
-    .footer-bottom { max-width: 1000px; margin: 2rem auto 0; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; color: var(--muted); font-size: 0.8rem; }
+    .hero-stats {
+      display: flex; justify-content: center;
+      background: var(--bg2); border: 1px solid var(--b);
+      border-radius: 18px; overflow: hidden;
+      max-width: 400px; margin: 0 auto;
+    }
+    .hstat {
+      flex: 1; padding: 16px 8px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      position: relative;
+    }
+    .hstat + .hstat::before {
+      content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+      width: 1px; background: var(--b);
+    }
+    .hstat-num { font-size: 22px; font-weight: 900; color: var(--y); }
+    .hstat-lbl { font-size: 10px; color: var(--t3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
 
-    /* Prose (terms/privacy) */
-    .prose { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
-    .prose h1 { font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; }
-    .prose .updated { color: var(--muted); font-size: 0.875rem; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
-    .prose h2 { font-size: 1.1rem; font-weight: 700; color: var(--primary); margin: 2rem 0 0.75rem; }
-    .prose p { color: var(--muted); margin-bottom: 1rem; }
-    .prose ul, .prose ol { color: var(--muted); padding-left: 1.5rem; margin-bottom: 1rem; }
-    .prose li { margin-bottom: 0.3rem; }
-    .prose a { color: var(--primary); }
-    .prose strong { color: var(--text); }
-
-    /* Discord Dropdown */
+    /* ─── Discord Dropdown ─────────────────────────────────────────────── */
     .discord-dropdown { position: relative; display: inline-flex; }
     .discord-dropdown-menu {
       display: none; position: absolute; top: calc(100% + 8px); left: 50%;
-      transform: translateX(-50%); min-width: 260px; z-index: 200;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); overflow: hidden;
-      box-shadow: 0 12px 36px rgba(0,0,0,.5);
+      transform: translateX(-50%); min-width: 272px; z-index: 200;
+      background: var(--bg2); border: 1px solid var(--b);
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,.6);
     }
     .discord-dropdown-menu.open { display: block; }
     .discord-dropdown-menu a {
-      display: flex; align-items: center; gap: 0.75rem;
-      padding: 0.85rem 1rem; color: var(--text);
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; color: var(--t);
       transition: background .15s; text-decoration: none;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--b);
     }
     .discord-dropdown-menu a:last-child { border-bottom: none; }
-    .discord-dropdown-menu a:hover { background: var(--bg3); text-decoration: none; }
+    .discord-dropdown-menu a:hover { background: var(--bg3); }
     .discord-dropdown-menu .dd-icon { font-size: 1.4rem; flex-shrink: 0; }
-    .discord-dropdown-menu .dd-label strong { display: block; font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.1rem; }
-    .discord-dropdown-menu .dd-label span { font-size: 0.78rem; color: var(--muted); }
+    .discord-dropdown-menu .dd-label strong { display: block; font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 2px; }
+    .discord-dropdown-menu .dd-label span { font-size: 0.78rem; color: var(--t3); }
 
-    @media (max-width: 640px) {
-      .nav-links { display: none; }
-      .footer-inner { grid-template-columns: 1fr; }
-      .footer-links { align-items: flex-start; }
-      .footer-bottom { flex-direction: column; align-items: flex-start; }
-      .discord-dropdown-menu { left: 0; transform: none; }
+    /* ─── PLATFORMS ────────────────────────────────────────────────────── */
+    .platform-grid { display: flex; flex-direction: column; gap: 12px; }
+    .plat-card {
+      background: var(--bg2); border: 1px solid var(--b);
+      border-radius: var(--r); padding: 20px;
+      display: flex; align-items: center; gap: 16px;
+      text-decoration: none; color: inherit;
+      transition: transform 200ms, border-color 200ms, box-shadow 200ms;
+    }
+    .plat-card:hover { transform: translateY(-2px); }
+    .plat-card:active { transform: scale(0.98); }
+    .plat-card.tg:hover { border-color: rgba(38,165,228,0.4); box-shadow: 0 8px 32px rgba(38,165,228,0.12); }
+    .plat-card.dc:hover { border-color: rgba(88,101,242,0.4); box-shadow: 0 8px 32px rgba(88,101,242,0.12); }
+    .plat-card.wa:hover { border-color: rgba(37,211,102,0.4); box-shadow: 0 8px 32px rgba(37,211,102,0.12); }
+    .plat-icon {
+      width: 50px; height: 50px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    .plat-icon.tg { background: rgba(38,165,228,0.12); }
+    .plat-icon.dc { background: rgba(88,101,242,0.12); }
+    .plat-icon.wa { background: rgba(37,211,102,0.12); }
+    .plat-body { flex: 1; min-width: 0; }
+    .plat-name { font-size: 16px; font-weight: 800; margin-bottom: 2px; }
+    .plat-desc { font-size: 13px; color: var(--t2); line-height: 1.5; }
+    .plat-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 700; padding: 2px 9px;
+      border-radius: 999px; margin-top: 5px;
+    }
+    .plat-tag.tg { background: rgba(38,165,228,0.1); color: var(--tg); }
+    .plat-tag.dc { background: rgba(88,101,242,0.1); color: #818CF8; }
+    .plat-tag.wa { background: rgba(37,211,102,0.1); color: #4ADE80; }
+    .plat-arrow { font-size: 20px; color: var(--t3); flex-shrink: 0; transition: transform 200ms, color 200ms; }
+    .plat-card:hover .plat-arrow { transform: translateX(3px); color: var(--y); }
+
+    /* ─── HOW IT WORKS ─────────────────────────────────────────────────── */
+    .steps-tabs {
+      display: flex; gap: 6px; margin-bottom: 20px;
+      overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+    }
+    .steps-tabs::-webkit-scrollbar { display: none; }
+    .step-tab {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 16px; border-radius: 999px;
+      background: var(--bg2); border: 1px solid var(--b);
+      font-size: 13px; font-weight: 700; color: var(--t3);
+      cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 200ms;
+    }
+    .step-tab.active { background: var(--y); color: #0A0A00; border-color: var(--y); }
+    .step-tab-num {
+      width: 22px; height: 22px; border-radius: 7px;
+      background: rgba(0,0,0,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900;
+    }
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+    .step-card { background: var(--bg2); border: 1px solid var(--b); border-radius: var(--r); overflow: hidden; }
+    .step-card-body { padding: 22px 22px 18px; }
+    .step-num-badge {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: var(--y); color: #0A0A00;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 900; margin-bottom: 14px;
+    }
+    .step-title { font-size: 19px; font-weight: 900; margin-bottom: 7px; }
+    .step-desc { font-size: 14px; color: var(--t2); line-height: 1.65; }
+    .step-chat-preview {
+      background: #17212b; border-top: 1px solid rgba(255,255,255,0.05); padding: 12px;
+    }
+    .sc-bub { padding: 8px 12px; border-radius: 12px; font-size: 12px; line-height: 1.5; margin-bottom: 6px; max-width: 90%; }
+    .sc-bot { background: #182533; color: #e8e8e8; border-bottom-left-radius: 3px; }
+    .sc-user { background: #2b5278; color: #fff; border-bottom-right-radius: 3px; margin-left: auto; }
+    .sc-hi { color: var(--y); font-weight: 800; }
+    .sc-kb { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+    .sc-row { display: flex; gap: 4px; }
+    .sc-b { flex: 1; background: #182533; border-radius: 7px; padding: 8px 6px; font-size: 11px; font-weight: 700; color: #fff; text-align: center; }
+    .sc-b.y { background: rgba(255,170,0,0.12); color: var(--y); border: 1px solid rgba(255,170,0,0.18); }
+    .sc-b.b { color: #60A5FA; }
+
+    /* ─── FEATURES ─────────────────────────────────────────────────────── */
+    .feat-grid { display: flex; flex-direction: column; gap: 10px; }
+    .feat-item {
+      background: var(--bg2); border: 1px solid var(--b);
+      border-radius: 16px; padding: 20px;
+      display: flex; align-items: flex-start; gap: 14px;
+      transition: border-color 250ms, transform 250ms;
+    }
+    .feat-item:hover { border-color: rgba(255,170,0,0.22); transform: translateY(-2px); }
+    .feat-ico {
+      width: 46px; height: 46px; border-radius: 13px;
+      background: rgba(255,170,0,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .feat-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .feat-desc { font-size: 13px; color: var(--t2); line-height: 1.65; }
+
+    /* ─── POINTS ───────────────────────────────────────────────────────── */
+    .points-wrap { display: flex; flex-direction: column; gap: 24px; }
+    .points-card {
+      background: var(--bg2); border: 1px solid rgba(255,170,0,0.2);
+      border-radius: var(--r); padding: 24px;
+      box-shadow: 0 0 50px rgba(255,170,0,0.08);
+    }
+    .pc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .pc-label { font-size: 11px; font-weight: 700; color: var(--y); text-transform: uppercase; letter-spacing: 0.08em; }
+    .pc-badge { background: rgba(255,170,0,0.1); border: 1px solid rgba(255,170,0,0.2); color: var(--y); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+    .pc-num { font-size: 54px; font-weight: 900; color: var(--y); line-height: 1; font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
+    .pc-sub { font-size: 12px; color: var(--t3); margin-bottom: 16px; }
+    .pc-bar-bg { background: var(--bg3); border-radius: 999px; height: 7px; margin-bottom: 6px; overflow: hidden; }
+    .pc-bar { height: 7px; background: linear-gradient(90deg, var(--y), var(--yl)); border-radius: 999px; width: 0; transition: width 1.5s ease; }
+    .pc-bar.animated { width: 70%; }
+    .pc-hint { font-size: 11px; color: var(--t3); }
+    .pc-reward {
+      background: rgba(255,170,0,0.07); border: 1px solid rgba(255,170,0,0.12);
+      border-radius: 12px; padding: 12px 14px; margin-top: 16px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 700; color: var(--y);
+    }
+    .points-rules { display: flex; flex-direction: column; gap: 12px; }
+    .pr { background: var(--bg2); border: 1px solid var(--b); border-radius: 14px; padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .pr-ico { width: 40px; height: 40px; border-radius: 11px; background: rgba(255,170,0,0.08); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .pr-title { font-size: 14px; font-weight: 800; margin-bottom: 3px; }
+    .pr-desc { font-size: 13px; color: var(--t2); line-height: 1.6; }
+
+    /* ─── TESTIMONIALS ─────────────────────────────────────────────────── */
+    .testi-grid { display: flex; flex-direction: column; gap: 12px; }
+    .testi-card {
+      background: var(--bg2); border: 1px solid var(--b);
+      border-radius: var(--r); padding: 22px;
+      transition: border-color 250ms, transform 250ms;
+    }
+    .testi-card:hover { border-color: rgba(255,170,0,0.2); transform: translateY(-2px); }
+    .testi-stars { color: var(--y); font-size: 14px; letter-spacing: 2px; margin-bottom: 12px; }
+    .testi-msg { font-size: 14px; color: var(--t); line-height: 1.7; margin-bottom: 16px; font-style: italic; }
+    .testi-user { display: flex; align-items: center; gap: 10px; }
+    .testi-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .testi-name { font-size: 13px; font-weight: 800; }
+    .testi-platform { font-size: 11px; color: var(--t3); margin-top: 1px; }
+
+    /* ─── CTA ──────────────────────────────────────────────────────────── */
+    #cta { text-align: center; }
+    .cta-icon { font-size: 52px; display: block; margin-bottom: 8px; animation: pulse-emb 2.5s ease-in-out infinite; }
+    .cta-title { font-size: clamp(34px, 6vw, 64px); font-weight: 900; letter-spacing: -0.025em; line-height: 1.08; margin-bottom: 16px; }
+    .cta-title .y { color: var(--y); }
+    .cta-desc { font-size: 16px; color: var(--t2); line-height: 1.65; margin-bottom: 36px; max-width: 480px; margin-left: auto; margin-right: auto; }
+    .cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .cta-note { font-size: 12px; color: var(--t3); }
+
+    /* ─── FOOTER ───────────────────────────────────────────────────────── */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--b);
+      padding: 32px var(--page-pad);
+      display: flex; flex-direction: column;
+      align-items: center; gap: 14px; text-align: center;
+    }
+    footer img { height: 26px; }
+    .footer-copy { font-size: 12px; color: var(--t3); }
+    .footer-links { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .footer-links a { font-size: 13px; color: var(--t3); font-weight: 700; transition: color 200ms; }
+    .footer-links a:hover { color: var(--y); }
+
+    /* ─── Scroll fade-in ───────────────────────────────────────────────── */
+    .fi { opacity: 0; transform: translateY(24px); transition: opacity 550ms ease, transform 550ms ease; }
+    .fi.vis { opacity: 1; transform: translateY(0); }
+    .fi:nth-child(2) { transition-delay: 80ms; }
+    .fi:nth-child(3) { transition-delay: 160ms; }
+    .fi:nth-child(4) { transition-delay: 240ms; }
+    .fi:nth-child(5) { transition-delay: 320ms; }
+    .fi:nth-child(6) { transition-delay: 400ms; }
+
+    /* ─── Prose (terms / privacy) ──────────────────────────────────────── */
+    .prose { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; position: relative; z-index: 1; }
+    .prose h1 { font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; }
+    .prose .updated { color: var(--t3); font-size: 0.875rem; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--b); }
+    .prose h2 { font-size: 1.1rem; font-weight: 700; color: var(--y); margin: 2rem 0 0.75rem; }
+    .prose p { color: var(--t2); margin-bottom: 1rem; line-height: 1.7; }
+    .prose ul, .prose ol { color: var(--t2); padding-left: 1.5rem; margin-bottom: 1rem; }
+    .prose li { margin-bottom: 0.3rem; line-height: 1.65; }
+    .prose a { color: var(--y); }
+    .prose strong { color: var(--t); }
+    .prose code { background: var(--bg2); border: 1px solid var(--b); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.82rem; color: var(--y); font-family: 'JetBrains Mono', monospace; }
+
+    /* ─── TABLET (640px+) ──────────────────────────────────────────────── */
+    @media (min-width: 640px) {
+      .platform-grid { display: grid; grid-template-columns: 1fr 1fr; }
+      .feat-grid { display: grid; grid-template-columns: 1fr 1fr; }
+      .testi-grid { display: grid; grid-template-columns: 1fr 1fr; }
+      .testi-grid .testi-card:last-child:nth-child(odd) { grid-column: 1 / -1; max-width: 50%; }
+    }
+
+    /* ─── DESKTOP (960px+) ─────────────────────────────────────────────── */
+    @media (min-width: 960px) {
+      body { padding-bottom: 0; }
+      .sticky-bar { display: none; }
+
+      nav { height: 64px; padding: 0 40px; }
+      .nav-links { display: flex; }
+      .nav-logo img { height: 32px; }
+
+      section { padding: 96px 0; }
+
+      #hero { padding-top: 100px; text-align: left; min-height: 92vh; display: flex; align-items: center; }
+      #hero .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+      .hero-emblem { margin: 0 0 28px; }
+      .hero-desc { margin: 0 0 32px; }
+      .hero-btns { justify-content: flex-start; }
+      .hero-stats { margin: 0; }
+      .hero-right { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+      .hero-big-bolt { position: relative; width: 340px; height: 340px; display: flex; align-items: center; justify-content: center; }
+      .bolt-glow { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(255,170,0,0.18) 0%, transparent 65%); animation: pulse-emb 3s ease-in-out infinite; }
+      .hero-big-bolt img { position: relative; z-index: 1; width: 210px; filter: drop-shadow(0 0 48px rgba(255,170,0,0.65)); animation: float-bolt 4s ease-in-out infinite; }
+      @keyframes float-bolt {
+        0%,100% { transform: translateY(0) rotate(-3deg); }
+        50% { transform: translateY(-16px) rotate(-3deg); }
+      }
+      .chip-float {
+        position: absolute; background: var(--bg2); border: 1px solid var(--b); border-radius: 12px;
+        padding: 9px 14px; font-size: 13px; font-weight: 700;
+        backdrop-filter: blur(8px); white-space: nowrap;
+        animation: float-chip 5s ease-in-out infinite; z-index: 2;
+      }
+      .chip-float:nth-child(3) { animation-delay: -1.5s; }
+      .chip-float:nth-child(4) { animation-delay: -3s; }
+      @keyframes float-chip {
+        0%,100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+      .chip-1 { top: 5%; left: -5%; color: var(--green); }
+      .chip-2 { bottom: 15%; left: -8%; color: var(--y); }
+      .chip-3 { top: 20%; right: -5%; color: var(--tg); font-size: 12px; }
+      .hero-emblem-desktop-hide { display: none; }
+
+      .platform-grid { grid-template-columns: repeat(3, 1fr); }
+
+      .steps-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
+      .steps-right { position: sticky; top: 88px; }
+      .steps-tabs { flex-wrap: wrap; }
+
+      .feat-grid { grid-template-columns: repeat(3, 1fr); }
+
+      .points-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+      .points-card { align-self: start; }
+
+      .testi-grid { grid-template-columns: repeat(3, 1fr); }
+      .testi-grid .testi-card:last-child:nth-child(odd) { grid-column: auto; max-width: 100%; }
+
+      .discord-dropdown-menu { left: 50%; transform: translateX(-50%); }
+
+      footer { flex-direction: row; justify-content: space-between; text-align: left; padding: 32px 40px; }
+      .footer-links { justify-content: flex-end; }
+    }
+
+    @media (min-width: 1200px) {
+      :root { --page-pad: 40px; }
     }
   </style>
 </head>
@@ -324,59 +604,85 @@ function landingLayout(title: string, description: string, body: string): string
       document.querySelectorAll('.discord-dropdown-menu.open').forEach(m => m.classList.remove('open'));
     }
   });
-  function switchTab(platform) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + platform).classList.add('active');
-    event.currentTarget.classList.add('active');
+  function switchStep(n) {
+    document.querySelectorAll('.step-tab').forEach((t, i) => t.classList.toggle('active', i === n));
+    document.querySelectorAll('.step-panel').forEach((p, i) => p.classList.toggle('active', i === n));
+    document.querySelectorAll('.step-overview-item').forEach((item, i) => {
+      const isActive = i === n;
+      item.style.background = isActive ? 'var(--bg2)' : 'var(--bg3)';
+      item.style.borderColor = isActive ? 'rgba(255,170,0,0.2)' : 'var(--b)';
+      const numBadge = item.querySelector('div:first-child');
+      numBadge.style.background = isActive ? 'var(--y)' : 'var(--bg2)';
+      numBadge.style.color = isActive ? '#0A0A00' : 'var(--t3)';
+      const title = item.querySelector('div:last-child div:first-child');
+      title.style.color = isActive ? 'var(--t)' : 'var(--t2)';
+    });
   }
+  function handleResize() {
+    const overview = document.getElementById('steps-overview');
+    if (overview) overview.style.display = window.innerWidth >= 960 ? 'block' : 'none';
+  }
+  window.addEventListener('resize', handleResize);
+  handleResize();
+  window.addEventListener('scroll', () => {
+    document.getElementById('main-nav').classList.toggle('scrolled', window.scrollY > 40);
+  });
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('vis');
+        if (e.target.id === 'points-card') {
+          setTimeout(() => { const b = document.getElementById('pc-bar'); if (b) b.classList.add('animated'); }, 200);
+        }
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -32px 0px' });
+  document.querySelectorAll('.fi').forEach(el => io.observe(el));
 </script>
 </body>
 </html>`;
 }
 
 const NAV = `
-<nav class="nav">
-  <div class="nav-brand">
-    <img src="/images/logo-emblem.png" alt="${APP_NAME} logo" onerror="this.style.display='none'">
-    <span>${APP_NAME}</span>
-  </div>
-  <div class="nav-links">
-    <a href="/#platform">Platform</a>
-    <a href="/#cara-pakai">Cara Pakai</a>
-    <a href="/#fitur">Fitur</a>
-    <a href="/#game">Game</a>
-    <a href="/terms">Syarat</a>
-    <a href="/privacy">Privasi</a>
-  </div>
-  <a href="https://t.me/yokmabarbot" class="btn btn-primary nav-cta" target="_blank" rel="noopener">Top Up Sekarang</a>
+<div class="ambient"><div class="amb amb-1"></div><div class="amb amb-2"></div><div class="amb amb-3"></div></div>
+<div class="grid-bg"></div>
+<nav id="main-nav">
+  <a href="/" class="nav-logo"><img src="/images/logo-full.png" alt="${APP_NAME}" onerror="this.style.display='none'"></a>
+  <ul class="nav-links">
+    <li><a href="/#platforms">Platform</a></li>
+    <li><a href="/#howto">Cara Pakai</a></li>
+    <li><a href="/#features">Fitur</a></li>
+    <li><a href="/#points">Poin</a></li>
+    <li><a href="/terms">Syarat</a></li>
+    <li><a href="/privacy">Privasi</a></li>
+  </ul>
+  <a href="https://t.me/yokmabarbot" target="_blank" rel="noopener" class="nav-pill">⚡ Top Up</a>
 </nav>
 `;
 
 const FOOTER = `
-<footer class="footer">
-  <div class="footer-inner">
-    <div>
-      <div class="footer-brand">
-        <img src="/images/logo-emblem.png" alt="${APP_NAME}" onerror="this.style.display='none'">
-        <span>${APP_NAME}</span>
-      </div>
-      <p class="footer-desc">Top up game cepat, langsung dari chat — tanpa perlu buka web atau aplikasi tambahan.</p>
-    </div>
-    <div class="footer-links">
-      <a href="/#platform">Platform</a>
-      <a href="/#cara-pakai">Cara Pakai</a>
-      <a href="/#fitur">Fitur</a>
-      <a href="/#game">Game</a>
-      <a href="/terms">Syarat & Ketentuan</a>
-      <a href="/privacy">Kebijakan Privasi</a>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <span>© ${new Date().getFullYear()} ${APP_NAME}. Semua hak dilindungi.</span>
-    <span>Dibuat dengan ❤️ untuk para gamer Indonesia</span>
+<footer>
+  <img src="/images/logo-full.png" alt="${APP_NAME}" onerror="this.style.display='none'">
+  <span class="footer-copy">© ${new Date().getFullYear()} ${APP_NAME}. Top up cepat, langsung gas.</span>
+  <div class="footer-links">
+    <a href="https://t.me/yokmabarbot" target="_blank" rel="noopener">Telegram</a>
+    <a href="${DISCORD_SERVER_URL}" target="_blank" rel="noopener">Discord</a>
+    <a href="/#howto">Tutorial</a>
+    <a href="/#points">Poin</a>
+    <a href="/terms">Syarat</a>
+    <a href="/privacy">Privasi</a>
   </div>
 </footer>
+<div class="sticky-bar">
+  <a href="https://t.me/yokmabarbot" target="_blank" rel="noopener" class="sb-btn sb-tg">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.01 9.476c-.147.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.332-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.462c.537-.194 1.006.13.873.746z"/></svg>
+    Telegram
+  </a>
+  <a href="${DISCORD_SERVER_URL}" target="_blank" rel="noopener" class="sb-btn sb-dc">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+    Discord
+  </a>
+</div>
 `;
 
 // ─── GET / — Landing Page ─────────────────────────────────────────────────────
@@ -385,208 +691,266 @@ landing.get("/", (c) => {
   const body = `
 ${NAV}
 
-<!-- Hero -->
-<section class="hero">
-  <div class="hero-badge">⚡ Harga kompetitif, proses instan</div>
-  <h1>Top Up Game Murah<br>Langsung dari <span class="highlight">Chat</span></h1>
-  <p>Harga terjangkau dari supplier resmi. Top up Mobile Legends, Free Fire, dan puluhan game lain lewat Telegram atau Discord — tanpa buka web, dalam hitungan menit.</p>
-  <div class="hero-actions">
-    <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Mulai di Telegram</a>
-    ${discordDropdownBtn()}
-  </div>
-  <div class="hero-img">
-    <img src="/images/logo-full.png" alt="${APP_NAME}" onerror="this.style.display='none'">
-  </div>
-</section>
-
-<!-- Platforms -->
-<section class="platforms" id="platform">
-  <p class="section-label">Platform</p>
-  <h2 class="section-title">Top Up di Mana Aja</h2>
-  <p class="section-sub">Pilih platform favoritmu — semua pengalaman sama cepatnya.</p>
-  <div class="platform-cards">
-    <div class="platform-card">
-      <div class="platform-icon">✈️</div>
-      <h3>Telegram</h3>
-      <p>Inline keyboard interaktif. Tap, pilih, bayar — selesai dalam 1 menit.</p>
-    </div>
-    <div class="platform-card">
-      <div class="platform-icon">🎮</div>
-      <h3>Discord</h3>
-      <p>Slash command <code>/topup</code> dengan autocomplete. Langsung dari server gaming kamu.</p>
-    </div>
-    <!--
-    <div class="platform-card">
-      <div class="platform-icon">💬</div>
-      <h3>WhatsApp</h3>
-      <p>Menu bernomor yang simpel. Cocok untuk siapa saja, tanpa perlu install app baru.</p>
-    </div>
-    -->
-  </div>
-</section>
-
-<!-- Tutorial -->
-<section class="tutorial" id="cara-pakai">
-  <p class="section-label">Cara Pakai</p>
-  <h2 class="section-title">Mulai Top Up dalam 3 Langkah</h2>
-  <p class="section-sub">Pilih platform kamu dan ikuti langkah berikut — selesai dalam hitungan menit.</p>
-  <div class="tutorial-tabs">
-    <button class="tab-btn active" onclick="switchTab('telegram')">✈️ Telegram</button>
-    <button class="tab-btn" onclick="switchTab('discord')">🎮 Discord</button>
-  </div>
-
-  <div id="tab-telegram" class="tab-panel active">
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h4>Buka bot di Telegram</h4>
-          <p>Cari <code>@yokmabarbot</code> di Telegram atau langsung klik tombol "Mulai di Telegram" di atas.</p>
-        </div>
+<section id="hero">
+  <div class="wrap">
+    <div>
+      <div class="hero-badge">⚡ Bot Top Up Game #1</div>
+      <div class="hero-emblem hero-emblem-desktop-hide">
+        <img src="/images/logo-emblem.png" alt="">
       </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h4>Ketik /topup</h4>
-          <p>Pilih game dari daftar yang muncul, atau tap <code>🔍 Cari game lain</code> jika gamenya tidak ada di daftar utama.</p>
-        </div>
+      <h1 class="hero-title">Top Up Game<br><span class="y">Langsung Gas</span><br>dari Chat!</h1>
+      <p class="hero-desc">Tanpa buka web, tanpa install app. Top up Diamond, UC, VP, dan 100+ game — langsung dari <strong style="color:#fff">Telegram</strong>, <strong style="color:#fff">WhatsApp</strong>, atau <strong style="color:#fff">Discord</strong> kamu.</p>
+      <div class="hero-btns">
+        <a href="https://t.me/yokmabarbot" target="_blank" rel="noopener" class="btn btn-tg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.01 9.476c-.147.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.332-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.462c.537-.194 1.006.13.873.746z"/></svg>
+          Telegram Bot
+        </a>
+        ${discordDropdownBtn()}
+        <a href="/#howto" class="btn btn-ghost">Cara Pakai →</a>
       </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h4>Pilih nominal & masukkan ID game</h4>
-          <p>Tap nominal yang kamu mau, lalu masukkan User ID game kamu. Bot akan tampilkan konfirmasi sebelum lanjut.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <h4>Bayar & selesai</h4>
-          <p>Pilih metode pembayaran (QRIS, GoPay, OVO, Dana, atau transfer bank), selesaikan pembayaran, dan item langsung masuk ke akun game kamu.</p>
-        </div>
+      <div class="hero-stats fi vis">
+        <div class="hstat"><span class="hstat-num">100+</span><span class="hstat-lbl">Game</span></div>
+        <div class="hstat"><span class="hstat-num">&lt;5s</span><span class="hstat-lbl">Proses</span></div>
+        <div class="hstat"><span class="hstat-num">3</span><span class="hstat-lbl">Platform</span></div>
       </div>
     </div>
-  </div>
-
-  <div id="tab-discord" class="tab-panel">
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h4>Invite bot atau gabung server</h4>
-          <p>Tambahkan YokMabar Bot ke server Discord kamu, atau gabung ke server komunitas YokMabar lewat tombol Discord di atas.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h4>Ketik /topup</h4>
-          <p>Gunakan slash command <code>/topup</code> di channel manapun. Autocomplete akan muncul untuk membantu pilih game dan nominal.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h4>Isi User ID di form popup</h4>
-          <p>Setelah pilih game dan nominal, sebuah form kecil akan muncul. Masukkan User ID dan Server ID game kamu di sana.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <h4>Konfirmasi & bayar</h4>
-          <p>Cek detail pesanan di embed konfirmasi, pilih metode bayar, selesaikan pembayaran. Item masuk otomatis — semua pesan hanya terlihat oleh kamu.</p>
-        </div>
+    <div class="hero-right">
+      <div class="hero-big-bolt">
+        <div class="bolt-glow"></div>
+        <img src="/images/logo-emblem.png" alt="">
+        <div class="chip-float chip-1">🎉 Top up berhasil! +19 poin</div>
+        <div class="chip-float chip-2">⚡ Rp 19.000 · 86 Diamonds</div>
+        <div class="chip-float chip-3">🔒 Aman &amp; terpercaya</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Features -->
-<section class="features" id="fitur">
-  <p class="section-label">Keunggulan</p>
-  <h2 class="section-title">Kenapa Pilih ${APP_NAME}?</h2>
-  <p class="section-sub">Harga murah, proses cepat, langsung dari supplier resmi — dari gamer, untuk gamer.</p>
-  <div class="feature-grid">
-    <div class="feature-item">
-      <div class="feature-icon">💰</div>
-      <div>
-        <h3>Harga Kompetitif</h3>
-        <p>Harga langsung dari supplier resmi Digiflazz — transparan, tanpa biaya tersembunyi.</p>
-      </div>
+<section id="platforms" class="alt">
+  <div class="wrap">
+    <div class="sh fi">
+      <div class="sh-tag">Platform</div>
+      <h2 class="sh-title">Top up di mana <span class="y">kamu nongkrong</span></h2>
+      <p class="sh-desc">YokMabar hadir di tiga platform chat favoritmu. Pilih yang paling nyaman.</p>
     </div>
-    <div class="feature-item">
-      <div class="feature-icon">⚡</div>
-      <div>
-        <h3>Proses Instan</h3>
-        <p>Item masuk ke akun game kamu dalam hitungan detik setelah pembayaran dikonfirmasi.</p>
-      </div>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">🔒</div>
-      <div>
-        <h3>Pembayaran Aman</h3>
-        <p>Didukung Midtrans — QRIS, GoPay, OVO, Dana, dan transfer bank tersedia.</p>
-      </div>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">🎁</div>
-      <div>
-        <h3>Sistem Poin</h3>
-        <p>Setiap transaksi mengumpulkan poin. Tukar poin untuk diskon di transaksi berikutnya.</p>
-      </div>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">🔥</div>
-      <div>
-        <h3>Event Diskon</h3>
-        <p>Promo berkala untuk game-game populer. Harga lebih murah, langsung terlihat saat checkout.</p>
-      </div>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">🆔</div>
-      <div>
-        <h3>Validasi ID Otomatis</h3>
-        <p>ID game dicek sebelum transaksi untuk Free Fire dan Mobile Legends — tidak perlu khawatir salah kirim.</p>
-      </div>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">📋</div>
-      <div>
-        <h3>Riwayat Transaksi</h3>
-        <p>Cek 5 transaksi terakhir kapan saja langsung dari chat bot.</p>
+    <div class="platform-grid">
+      <a href="https://t.me/yokmabarbot" target="_blank" rel="noopener" class="plat-card tg fi">
+        <div class="plat-icon tg">✈️</div>
+        <div class="plat-body">
+          <div class="plat-name">Telegram</div>
+          <p class="plat-desc">Inline keyboard, flow cepat. Ketik /topup dan selesai dalam hitungan detik.</p>
+          <span class="plat-tag tg">⚡ Paling Cepat</span>
+        </div>
+        <span class="plat-arrow">›</span>
+      </a>
+      <a href="${DISCORD_SERVER_URL}" target="_blank" rel="noopener" class="plat-card dc fi">
+        <div class="plat-icon dc">🎮</div>
+        <div class="plat-body">
+          <div class="plat-name">Discord</div>
+          <p class="plat-desc">Slash command /topup dengan autocomplete game dan nominal. Reply ephemeral.</p>
+          <span class="plat-tag dc">🎮 Buat Gamer</span>
+        </div>
+        <span class="plat-arrow">›</span>
+      </a>
+      <div class="plat-card wa fi">
+        <div class="plat-icon wa">💬</div>
+        <div class="plat-body">
+          <div class="plat-name">WhatsApp</div>
+          <p class="plat-desc">Menu bernomor yang simpel. Balas angka untuk memilih — cocok buat siapa saja.</p>
+          <span class="plat-tag wa">👥 Paling Mudah</span>
+        </div>
+        <span class="plat-arrow" style="color:var(--t3)">›</span>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Games -->
-<section class="games" id="game">
-  <p class="section-label">Game Tersedia</p>
-  <h2 class="section-title">Ratusan Produk, Puluhan Game</h2>
-  <p class="section-sub">Dari game mobile populer hingga PC — semua ada di ${APP_NAME}.</p>
-  <div class="games-grid">
-    <span class="game-tag">⚔️ Mobile Legends</span>
-    <span class="game-tag">🔥 Free Fire</span>
-    <span class="game-tag">🌍 Genshin Impact</span>
-    <span class="game-tag">🚀 Honkai: Star Rail</span>
-    <span class="game-tag">🎯 PUBG Mobile</span>
-    <span class="game-tag">🎮 Valorant</span>
-    <span class="game-tag">🏆 Call of Duty Mobile</span>
-    <span class="game-tag">⚡ Clash of Clans</span>
-    <span class="game-tag">🦸 Marvel Rivals</span>
-    <span class="game-tag">🎲 Ragnarok Origin</span>
-    <span class="game-tag">+ Masih banyak lagi</span>
+<section id="howto">
+  <div class="wrap">
+    <div class="sh fi">
+      <div class="sh-tag">Tutorial</div>
+      <h2 class="sh-title">4 langkah, <span class="y">langsung selesai</span></h2>
+      <p class="sh-desc">Gak ribet, gak perlu daftar — langsung bisa top up dari Telegram kamu.</p>
+    </div>
+    <div class="steps-layout">
+      <div>
+        <div class="steps-tabs">
+          <div class="step-tab active" onclick="switchStep(0)"><span class="step-tab-num">1</span>Buka Bot</div>
+          <div class="step-tab" onclick="switchStep(1)"><span class="step-tab-num">2</span>Pilih Game</div>
+          <div class="step-tab" onclick="switchStep(2)"><span class="step-tab-num">3</span>User ID</div>
+          <div class="step-tab" onclick="switchStep(3)"><span class="step-tab-num">4</span>Bayar!</div>
+        </div>
+        <div class="step-panel active" id="sp-0">
+          <div class="step-card">
+            <div class="step-card-body">
+              <div class="step-num-badge">1</div>
+              <div class="step-title">Buka YokMabar Bot</div>
+              <p class="step-desc">Cari <strong style="color:#fff">@YokMabarBot</strong> di Telegram atau Discord. Klik Start atau ketik <strong style="color:var(--y)">/start</strong> untuk memulai.</p>
+            </div>
+            <div class="step-chat-preview">
+              <div class="sc-bub sc-bot">🎮 <span class="sc-hi">Halo! Selamat datang di YokMabar Bot!</span><br>Top up game kamu langsung dari chat. Yok, mulai! 👇</div>
+              <div class="sc-kb">
+                <div class="sc-row"><div class="sc-b y">🎮 Top Up</div><div class="sc-b">📋 Riwayat</div></div>
+                <div class="sc-row"><div class="sc-b">🎁 Poin Saya</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="step-panel" id="sp-1">
+          <div class="step-card">
+            <div class="step-card-body">
+              <div class="step-num-badge">2</div>
+              <div class="step-title">Pilih Game &amp; Nominal</div>
+              <p class="step-desc">Tap game dari daftar populer, atau gunakan 🔍 untuk cari game lain. Lalu pilih nominal yang kamu mau.</p>
+            </div>
+            <div class="step-chat-preview">
+              <div class="sc-bub sc-user">🎮 Top Up</div>
+              <div class="sc-bub sc-bot">🎮 <span class="sc-hi">Pilih game:</span></div>
+              <div class="sc-kb">
+                <div class="sc-row"><div class="sc-b y">⚡ Mobile Legends</div></div>
+                <div class="sc-row"><div class="sc-b">🔥 Free Fire</div><div class="sc-b">🎯 PUBG</div></div>
+                <div class="sc-row"><div class="sc-b">🌸 Genshin Impact</div><div class="sc-b">💥 Valorant</div></div>
+                <div class="sc-row"><div class="sc-b b">🔍 Cari game lain...</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="step-panel" id="sp-2">
+          <div class="step-card">
+            <div class="step-card-body">
+              <div class="step-num-badge">3</div>
+              <div class="step-title">Masukkan User ID</div>
+              <p class="step-desc">Ketik User ID game kamu. Untuk Mobile Legends, tambahkan Server ID dipisah spasi. Bot tampilkan konfirmasi dulu sebelum bayar.</p>
+            </div>
+            <div class="step-chat-preview">
+              <div class="sc-bub sc-user">86 Diamonds — Rp 19.000</div>
+              <div class="sc-bub sc-bot">🎮 <span class="sc-hi">Masukkan User ID kamu:</span><br><span style="color:#6b7c8d;font-size:11px">Contoh: 123456789 1234</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-panel" id="sp-3">
+          <div class="step-card">
+            <div class="step-card-body">
+              <div class="step-num-badge">4</div>
+              <div class="step-title">Bayar &amp; Langsung Gas!</div>
+              <p class="step-desc">Pilih QRIS, GoPay, OVO, atau Dana. Selesaikan pembayaran dalam 15 menit — Diamond/UC/VP masuk otomatis kurang dari 5 detik. 🚀</p>
+            </div>
+            <div class="step-chat-preview">
+              <div class="sc-bub sc-user">💳 QRIS</div>
+              <div class="sc-bub sc-bot">🎉 <span class="sc-hi">Top up berhasil!</span><br>86 Diamonds sudah masuk ke akun kamu! 🚀<br><span style="color:#4ADE80">+19 poin · Total: 369 poin</span></div>
+              <div class="sc-kb">
+                <div class="sc-row"><div class="sc-b y">🎮 Top Up Lagi</div><div class="sc-b">🏠 Menu Utama</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="steps-right" style="display:none" id="steps-overview">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="step-overview-item" onclick="switchStep(0)" style="display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:14px;cursor:pointer;border:1px solid rgba(255,170,0,0.2);background:var(--bg2);">
+            <div style="width:32px;height:32px;border-radius:9px;background:var(--y);color:#0A0A00;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;">1</div>
+            <div><div style="font-size:15px;font-weight:800;margin-bottom:3px;">Buka YokMabar Bot</div><div style="font-size:13px;color:var(--t2)">Cari @YokMabarBot di Telegram atau Discord.</div></div>
+          </div>
+          <div class="step-overview-item" onclick="switchStep(1)" style="display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:14px;cursor:pointer;border:1px solid var(--b);background:var(--bg3);">
+            <div style="width:32px;height:32px;border-radius:9px;background:var(--bg2);color:var(--t3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;">2</div>
+            <div><div style="font-size:15px;font-weight:800;color:var(--t2);margin-bottom:3px;">Pilih Game &amp; Nominal</div><div style="font-size:13px;color:var(--t3)">100+ game tersedia, tinggal tap.</div></div>
+          </div>
+          <div class="step-overview-item" onclick="switchStep(2)" style="display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:14px;cursor:pointer;border:1px solid var(--b);background:var(--bg3);">
+            <div style="width:32px;height:32px;border-radius:9px;background:var(--bg2);color:var(--t3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;">3</div>
+            <div><div style="font-size:15px;font-weight:800;color:var(--t2);margin-bottom:3px;">Masukkan User ID</div><div style="font-size:13px;color:var(--t3)">Bot tampilkan konfirmasi dulu.</div></div>
+          </div>
+          <div class="step-overview-item" onclick="switchStep(3)" style="display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:14px;cursor:pointer;border:1px solid var(--b);background:var(--bg3);">
+            <div style="width:32px;height:32px;border-radius:9px;background:var(--bg2);color:var(--t3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;">4</div>
+            <div><div style="font-size:15px;font-weight:800;color:var(--t2);margin-bottom:3px;">Bayar &amp; Langsung Gas!</div><div style="font-size:13px;color:var(--t3)">QRIS, GoPay, OVO, Dana — masuk &lt;5 detik.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- CTA -->
-<section class="cta">
-  <h2>Siap Top Up Sekarang?</h2>
-  <p>Harga murah, proses instan — mulai dari bot favoritmu, tanpa daftar, langsung gas!</p>
-  <div class="cta-buttons">
-    <a href="https://t.me/yokmabarbot" class="btn btn-primary" target="_blank" rel="noopener">✈️ Buka Telegram</a>
-    ${discordDropdownBtn()}
+<section id="features" class="alt">
+  <div class="wrap">
+    <div class="sh fi">
+      <div class="sh-tag">Keunggulan</div>
+      <h2 class="sh-title">Kenapa pilih <span class="y">YokMabar?</span></h2>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-item fi"><div class="feat-ico">⚡</div><div><div class="feat-title">Super Cepat</div><p class="feat-desc">Proses top up rata-rata di bawah 5 detik. Langsung masuk ke akun game kamu tanpa nunggu manual.</p></div></div>
+      <div class="feat-item fi"><div class="feat-ico">🔒</div><div><div class="feat-title">Aman &amp; Terpercaya</div><p class="feat-desc">Supplier resmi Digiflazz. Payment via Midtrans — QRIS, GoPay, OVO, Dana dengan proteksi penuh.</p></div></div>
+      <div class="feat-item fi"><div class="feat-ico">🎮</div><div><div class="feat-title">100+ Game</div><p class="feat-desc">Mobile Legends, Free Fire, PUBG, Genshin Impact, Valorant, dan ratusan game lainnya tersedia.</p></div></div>
+      <div class="feat-item fi"><div class="feat-ico">🎁</div><div><div class="feat-title">Sistem Poin</div><p class="feat-desc">Tiap top up otomatis dapat poin. 200 poin = diskon Rp 1.000 — bot tawarkan langsung saat checkout.</p></div></div>
+      <div class="feat-item fi"><div class="feat-ico">📋</div><div><div class="feat-title">Riwayat Lengkap</div><p class="feat-desc">Lihat 5 transaksi terakhir kapan saja dengan /riwayat. Status order real-time di chat.</p></div></div>
+      <div class="feat-item fi"><div class="feat-ico">💬</div><div><div class="feat-title">3 Platform Chat</div><p class="feat-desc">Telegram, WhatsApp, Discord. Top up dari mana saja tanpa pindah aplikasi atau buka browser.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="points">
+  <div class="wrap">
+    <div class="sh fi">
+      <div class="sh-tag">Sistem Poin</div>
+      <h2 class="sh-title">Makin sering top up, <span class="y">makin hemat.</span></h2>
+      <p class="sh-desc">Setiap transaksi otomatis mengumpulkan poin yang bisa ditukar jadi diskon.</p>
+    </div>
+    <div class="points-wrap">
+      <div class="points-card fi" id="points-card">
+        <div class="pc-top"><span class="pc-label">🎁 Contoh Poin Kamu</span><span class="pc-badge">Aktif</span></div>
+        <div class="pc-num">350</div>
+        <div class="pc-sub">dari 500 poin untuk reward berikutnya</div>
+        <div class="pc-bar-bg"><div class="pc-bar" id="pc-bar"></div></div>
+        <div class="pc-hint">Berlaku 90 hari · diperpanjang tiap transaksi baru</div>
+        <div class="pc-reward"><span>💰</span><span>Tukar 200 poin = hemat Rp 1.000 di transaksi berikutnya!</span></div>
+      </div>
+      <div class="points-rules">
+        <div class="pr fi"><div class="pr-ico">⚡</div><div><div class="pr-title">Dapat Poin Otomatis</div><p class="pr-desc">Setiap Rp 1.000 = 1 poin. Top up Rp 19.000 langsung dapat 19 poin setelah transaksi sukses.</p></div></div>
+        <div class="pr fi"><div class="pr-ico">💰</div><div><div class="pr-title">Tukar Jadi Diskon</div><p class="pr-desc">200 poin = diskon Rp 1.000. Bot otomatis menawarkan saat checkout jika saldo poin cukup.</p></div></div>
+        <div class="pr fi"><div class="pr-ico">🔄</div><div><div class="pr-title">Masa Berlaku Diperpanjang</div><p class="pr-desc">Poin berlaku 90 hari dan otomatis diperpanjang setiap kali kamu melakukan top up baru.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="testimonials" class="alt">
+  <div class="wrap">
+    <div class="sh fi">
+      <div class="sh-tag">Testimoni</div>
+      <h2 class="sh-title">Kata mereka yang <span class="y">sudah pakai</span></h2>
+      <p class="sh-desc">YokMabar dipercaya oleh ribuan gamer di seluruh Indonesia.</p>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card fi">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-msg">"Gila cepet banget, baru bayar langsung diamondnya masuk. Gak perlu buka web segala — tinggal tap di Telegram selesai."</p>
+        <div class="testi-user"><div class="testi-avatar" style="background:#2b5278">😊</div><div><div class="testi-name">GamerXYZ</div><div class="testi-platform">via Telegram · Mobile Legends</div></div></div>
+      </div>
+      <div class="testi-card fi">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-msg">"/topup di Discord autocomplete gamenya langsung, isi User ID, pilih bayar — selesai. Ephemeral jadi gak keliatan orang lain. Mantap!"</p>
+        <div class="testi-user"><div class="testi-avatar" style="background:#404249">🎮</div><div><div class="testi-name">ProGamer99</div><div class="testi-platform">via Discord · Valorant</div></div></div>
+      </div>
+      <div class="testi-card fi">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-msg">"Sistem poinnya bagus banget, udah tukar 3x. Lumayan hemat Rp 3.000 tiap bulan. Makin rajin top up sekarang hehe."</p>
+        <div class="testi-user"><div class="testi-avatar" style="background:#1a3a1a">🌸</div><div><div class="testi-name">GenshinFan</div><div class="testi-platform">via WhatsApp · Genshin Impact</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cta">
+  <div class="wrap">
+    <span class="cta-icon">⚡</span>
+    <h2 class="cta-title">Yok, langsung <span class="y">gas</span><br>sekarang!</h2>
+    <p class="cta-desc">Top up game favoritmu dalam hitungan detik — langsung dari chat, tanpa ribet.</p>
+    <div class="cta-btns">
+      <a href="https://t.me/yokmabarbot" target="_blank" rel="noopener" class="btn btn-tg" style="font-size:16px;padding:15px 32px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.01 9.476c-.147.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.332-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.462c.537-.194 1.006.13.873.746z"/></svg>
+        Mulai di Telegram
+      </a>
+      ${discordDropdownBtn()}
+    </div>
+    <p class="cta-note">Gratis · Tanpa daftar · Langsung top up</p>
   </div>
 </section>
 
@@ -594,8 +958,8 @@ ${FOOTER}
 `;
 
   return c.html(landingLayout(
-    `${APP_NAME} — Top Up Game Murah, Cepat & Mudah`,
-    "Top up Mobile Legends, Free Fire, Genshin Impact, dan game lainnya dengan harga murah langsung dari supplier resmi. Proses instan via Telegram atau Discord.",
+    `${APP_NAME} — Top Up Game Langsung dari Chat`,
+    "Top up Diamond, UC, VP, dan 100+ game langsung dari Telegram, WhatsApp, atau Discord. Tanpa buka web, tanpa install app. Cepat, aman, langsung gas!",
     body,
   ));
 });
@@ -646,12 +1010,9 @@ ${NAV}
 <div class="prose">
   <h1>Syarat &amp; Ketentuan</h1>
   <p class="updated">Terakhir diperbarui: 1 Januari 2025</p>
-
   <p>Dengan menggunakan layanan ${APP_NAME} ("kami", "layanan"), kamu menyetujui syarat dan ketentuan berikut. Harap baca dengan seksama sebelum menggunakan layanan.</p>
-
   <h2>1. Layanan</h2>
   <p>${APP_NAME} adalah platform top up game digital yang beroperasi melalui bot Telegram dan Discord. Kami bertindak sebagai reseller produk digital dari penyedia resmi.</p>
-
   <h2>2. Penggunaan Layanan</h2>
   <ul>
     <li>Kamu wajib memastikan ID game dan data yang dimasukkan sudah benar sebelum konfirmasi.</li>
@@ -659,7 +1020,6 @@ ${NAV}
     <li>Kamu bertanggung jawab penuh atas akun game yang di-top up.</li>
     <li>Dilarang menggunakan layanan untuk tujuan penipuan, pencucian uang, atau aktivitas ilegal.</li>
   </ul>
-
   <h2>3. Pembayaran</h2>
   <ul>
     <li>Pembayaran diproses melalui Midtrans sebagai payment gateway resmi.</li>
@@ -667,7 +1027,6 @@ ${NAV}
     <li>Harga yang tertera sudah termasuk biaya layanan dan bersifat final.</li>
     <li>Kami tidak menyimpan data kartu kredit atau informasi pembayaran sensitif.</li>
   </ul>
-
   <h2>4. Refund &amp; Pembatalan</h2>
   <p>Transaksi yang telah berhasil diproses pada umumnya tidak dapat direfund karena bersifat digital dan instan. Pengecualian berlaku jika:</p>
   <ul>
@@ -675,7 +1034,6 @@ ${NAV}
     <li>Terjadi kesalahan teknis pada sistem kami.</li>
   </ul>
   <p>Untuk klaim refund, hubungi kami melalui fitur feedback di bot dengan menyertakan nomor order (#YM-XXXXX).</p>
-
   <h2>5. Sistem Poin</h2>
   <ul>
     <li>Poin diperoleh dari setiap transaksi yang berhasil (SUCCESS).</li>
@@ -683,7 +1041,6 @@ ${NAV}
     <li>Poin tidak dapat ditransfer, dicairkan, atau ditukar menjadi uang tunai.</li>
     <li>Kami berhak mengubah nilai tukar poin dengan pemberitahuan terlebih dahulu.</li>
   </ul>
-
   <h2>6. Batasan Tanggung Jawab</h2>
   <p>${APP_NAME} tidak bertanggung jawab atas:</p>
   <ul>
@@ -691,13 +1048,10 @@ ${NAV}
     <li>Gangguan layanan akibat pemeliharaan platform pihak ketiga (Telegram, Discord, game publisher).</li>
     <li>Kerugian tidak langsung yang timbul dari penggunaan layanan.</li>
   </ul>
-
   <h2>7. Perubahan Layanan</h2>
   <p>Kami berhak mengubah, menangguhkan, atau menghentikan layanan kapan saja dengan pemberitahuan minimal 7 hari melalui bot atau media sosial resmi.</p>
-
   <h2>8. Hukum yang Berlaku</h2>
   <p>Syarat dan ketentuan ini diatur oleh hukum Republik Indonesia. Segala sengketa diselesaikan secara musyawarah, atau melalui pengadilan yang berwenang di Indonesia.</p>
-
   <h2>9. Kontak</h2>
   <p>Pertanyaan atau keluhan dapat disampaikan melalui fitur feedback di bot ${APP_NAME} atau menghubungi admin melalui platform yang tersedia.</p>
 </div>
@@ -719,19 +1073,14 @@ ${NAV}
 <div class="prose">
   <h1>Kebijakan Privasi</h1>
   <p class="updated">Terakhir diperbarui: 1 Januari 2025</p>
-
   <p>Kebijakan ini menjelaskan bagaimana ${APP_NAME} mengumpulkan, menggunakan, dan melindungi data pribadi kamu saat menggunakan layanan kami.</p>
-
   <h2>1. Data yang Kami Kumpulkan</h2>
-  <p>Kami mengumpulkan data minimal yang diperlukan untuk menjalankan layanan:</p>
   <ul>
     <li><strong>Identitas platform:</strong> User ID dan username dari Telegram atau Discord.</li>
-    <!-- WhatsApp (nomor HP) — akan ditambahkan saat layanan aktif -->
     <li><strong>Data transaksi:</strong> Game yang dibeli, nominal, ID game yang di-top up, status pembayaran.</li>
     <li><strong>Data poin:</strong> Akumulasi dan riwayat penukaran poin.</li>
     <li><strong>Log teknis:</strong> Timestamp transaksi untuk keperluan audit dan penyelesaian sengketa.</li>
   </ul>
-
   <h2>2. Data yang TIDAK Kami Kumpulkan</h2>
   <ul>
     <li>Data kartu kredit atau rekening bank.</li>
@@ -739,9 +1088,7 @@ ${NAV}
     <li>Isi percakapan di luar alur transaksi bot.</li>
     <li>Data lokasi atau perangkat.</li>
   </ul>
-
   <h2>3. Penggunaan Data</h2>
-  <p>Data kamu digunakan untuk:</p>
   <ul>
     <li>Memproses transaksi top up.</li>
     <li>Menampilkan riwayat transaksi.</li>
@@ -750,15 +1097,12 @@ ${NAV}
     <li>Menangani keluhan dan permintaan refund.</li>
     <li>Mencegah penipuan dan penyalahgunaan layanan.</li>
   </ul>
-
   <h2>4. Berbagi Data dengan Pihak Ketiga</h2>
-  <p>Kami membagikan data terbatas kepada:</p>
   <ul>
     <li><strong>Digiflazz</strong> (supplier): User ID game untuk memproses top up.</li>
     <li><strong>Midtrans</strong> (payment): Data transaksi untuk memproses pembayaran.</li>
   </ul>
   <p>Kami tidak menjual data pribadi kamu kepada pihak manapun untuk tujuan pemasaran.</p>
-
   <h2>5. Keamanan Data</h2>
   <ul>
     <li>Data disimpan di server yang dilindungi firewall dan enkripsi.</li>
@@ -766,25 +1110,19 @@ ${NAV}
     <li>Komunikasi menggunakan HTTPS/TLS.</li>
     <li>Token dan kredensial sensitif tidak pernah disimpan dalam log.</li>
   </ul>
-
   <h2>6. Retensi Data</h2>
   <p>Data transaksi disimpan selama minimal 1 tahun untuk keperluan audit dan penyelesaian sengketa. Data akun pengguna disimpan selama akun aktif dan dapat dihapus atas permintaan.</p>
-
   <h2>7. Hak Pengguna</h2>
-  <p>Kamu berhak untuk:</p>
   <ul>
     <li>Meminta salinan data pribadi yang kami miliki.</li>
     <li>Meminta penghapusan akun dan data terkait (kecuali data transaksi yang masih dalam masa retensi).</li>
     <li>Mengajukan keberatan atas penggunaan data.</li>
   </ul>
   <p>Untuk mengajukan permintaan, gunakan fitur feedback di bot ${APP_NAME}.</p>
-
   <h2>8. Cookie &amp; Sesi Admin</h2>
   <p>Panel admin menggunakan cookie sesi yang bersifat httpOnly dan secure. Cookie ini tidak digunakan untuk melacak pengguna umum.</p>
-
   <h2>9. Perubahan Kebijakan</h2>
   <p>Perubahan kebijakan privasi akan diberitahukan melalui bot atau halaman ini minimal 7 hari sebelum berlaku.</p>
-
   <h2>10. Kontak</h2>
   <p>Pertanyaan seputar privasi dapat disampaikan melalui fitur feedback di bot ${APP_NAME}.</p>
 </div>
