@@ -18,6 +18,7 @@ const EnvSchema = z.object({
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_CLIENT_ID: z.string().min(1),
   DISCORD_ADMIN_CHANNEL_ID: z.string().min(1),
+  DISCORD_REVIEW_CHANNEL_ID: z.string().min(1),
   FONNTE_API_KEY: z.string().min(1),
   WHATSAPP_ADMIN_NUMBER: z.string().min(1),
 

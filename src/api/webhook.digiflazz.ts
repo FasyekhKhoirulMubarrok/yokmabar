@@ -17,6 +17,7 @@ import {
   notifySuccess,
   notifyFailed,
   notifyAdminOrderFailed,
+  notifyReviewRequest,
 } from "../services/notification.service.js";
 
 const webhookDigiflazz = new Hono();
@@ -96,6 +97,8 @@ webhookDigiflazz.post("/", async (c) => {
       totalPoints,
       data.sn,
     );
+
+    notifyReviewRequest(success.id, user.platform, user.platformUserId).catch(() => null);
 
     console.info(`[webhook-digiflazz] Order ${order.id} → SUCCESS.`);
     return c.json({ message: "ok" }, 200);

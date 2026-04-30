@@ -18,8 +18,14 @@ import {
   handleUserFeedbackReplyModalSubmit,
 } from "./commands/feedback.js";
 import { notifyUserBalanceRestored } from "../../services/notification.service.js";
+import {
+  handleReviewStart,
+  handleReviewStar,
+  handleReviewSubmit,
+  handleReviewSkip,
+} from "./commands/review.js";
 import { type Platform } from "@prisma/client";
-import { recordServerReferral } from "../../services/referral.service.js";
+import { recordServerReferral, syncGuildNames } from "../../services/referral.service.js";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 
@@ -34,6 +40,12 @@ discordClient.once(Events.ClientReady, (client) => {
   console.info(`[discord-bot] Bot ${client.user.tag} berjalan.`);
 
   client.user.setActivity("/topup | yokmabar.com", { type: ActivityType.Listening });
+
+  // Backfill nama server untuk semua guild yang sudah dimasuki bot
+  const guilds = client.guilds.cache.map((g) => ({ id: g.id, name: g.name }));
+  syncGuildNames(guilds).catch((err) => {
+    console.warn("[discord-bot] Gagal sync guild names:", err);
+  });
 });
 
 // ─── Guild Create (Referral Tracking) ────────────────────────────────────────
@@ -51,7 +63,7 @@ discordClient.on(Events.GuildCreate, async (guild) => {
 
     const executor = entry?.executor;
     if (executor != null) {
-      await recordServerReferral(guild.id, executor.id, executor.username ?? executor.id);
+      await recordServerReferral(guild.id, guild.name, executor.id, executor.username ?? executor.id);
       console.info(`[discord-bot] Referral dicatat — server: ${guild.name}, inviter: ${executor.username}`);
     }
   } catch (err) {
@@ -96,6 +108,8 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
         await handleAdminFeedbackReplyModalSubmit(interaction);
       } else if (interaction.customId.startsWith("fb_user_reply_modal|")) {
         await handleUserFeedbackReplyModalSubmit(interaction);
+      } else if (interaction.customId.startsWith("rv_submit:")) {
+        await handleReviewSubmit(interaction);
       }
       return;
     }
@@ -142,6 +156,12 @@ discordClient.on(Events.InteractionCreate, async (interaction) => {
           console.error("[discord] balance_notify error:", err);
           await interaction.followUp({ content: "😅 Gagal kirim notif ke user.", ephemeral: true });
         }
+      } else if (interaction.customId.startsWith("rv_start:")) {
+        await handleReviewStart(interaction);
+      } else if (interaction.customId.startsWith("rv_star:")) {
+        await handleReviewStar(interaction);
+      } else if (interaction.customId.startsWith("rv_skip:")) {
+        await handleReviewSkip(interaction);
       }
       return;
     }

@@ -1,5 +1,6 @@
 import { redis } from "../../db/redis.js";
 import { db } from "../../db/client.js";
+import { saveReview, postReviewToDiscord } from "../../services/review.service.js";
 import {
   getPopularBrands,
   getProductsByBrand,
@@ -203,6 +204,63 @@ export async function handleWhatsAppMessage(
   // Kata kunci reset
   if (/^(batal|cancel|mulai|start|menu|halo|hai|hi|hello)$/i.test(text)) {
     await sendMainMenu(phone);
+    return;
+  }
+
+  // ── Review pending check ────────────────────────────────────────────────────
+  const reviewStarsKey = `wa:review:stars:${phone}`;
+  const pendingStarsValue = await redis.get(reviewStarsKey);
+
+  if (pendingStarsValue !== null) {
+    // Fase 2: menunggu komentar setelah user pilih bintang
+    await redis.del(reviewStarsKey);
+    const parts = pendingStarsValue.split(":");
+    const orderId = parts[0];
+    const stars = Number(parts[1]);
+
+    if (orderId !== undefined && !isNaN(stars)) {
+      const comment = text === "0" ? undefined : text.trim() || undefined;
+      const order = await db.order.findUnique({ where: { id: orderId }, include: { user: true } });
+
+      if (order !== null) {
+        await saveReview({ orderId, userId: order.userId, stars, comment, platform: "WHATSAPP" });
+        await postReviewToDiscord({
+          orderId,
+          paymentRef: order.paymentRef ?? orderId,
+          game: order.game,
+          itemName: order.itemName,
+          stars,
+          comment,
+          platform: "WHATSAPP",
+          username: order.user.username ?? phone,
+        }).catch(() => null);
+        await sendWhatsApp(phone, `Makasih reviewnya! ${"⭐".repeat(stars)} 🙏`);
+      }
+    }
+    return;
+  }
+
+  const reviewPendingKey = `wa:review:pending:${phone}`;
+  const pendingReviewOrderId = await redis.get(reviewPendingKey);
+
+  if (pendingReviewOrderId !== null) {
+    // Fase 1: menunggu pilihan bintang
+    const choice = parseInt(text, 10);
+    if (choice === 0) {
+      await redis.del(reviewPendingKey);
+      await sendWhatsApp(phone, `Oke, no problem! Makasih udah top up di YokMabar 🎮`);
+      return;
+    }
+    if (choice >= 1 && choice <= 5) {
+      await redis.del(reviewPendingKey);
+      await redis.set(reviewStarsKey, `${pendingReviewOrderId}:${choice}`, "EX", 60 * 30);
+      await sendWhatsApp(
+        phone,
+        `${"⭐".repeat(choice)} Makasih ratingnya!\n\nMau tambah komentar? Ketik pesanmu atau balas *0* untuk lewati.`,
+      );
+      return;
+    }
+    await sendWhatsApp(phone, `😊 Ketik angka 1–5 untuk rating atau 0 untuk lewati ya!`);
     return;
   }
 

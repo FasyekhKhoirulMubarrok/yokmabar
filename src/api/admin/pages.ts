@@ -171,11 +171,13 @@ export function loginPage(error?: string): string {
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
-function nav(active: "dashboard" | "events" | "feedback"): string {
+function nav(active: "dashboard" | "events" | "feedback" | "revenue" | "servers"): string {
   const links = [
     { href: "/admin", label: "Dashboard", key: "dashboard" },
+    { href: "/admin/revenue", label: "Keuntungan", key: "revenue" },
     { href: "/admin/events", label: "Events", key: "events" },
     { href: "/admin/feedback", label: "Feedback", key: "feedback" },
+    { href: "/admin/servers", label: "Server Discord", key: "servers" },
   ];
   return `<nav class="nav">
   <span class="nav-brand">YokMabar Admin</span>
@@ -782,3 +784,332 @@ loadFeedback();
 </script>`;
   return layout("Feedback", body);
 }
+
+// ─── Revenue Page ─────────────────────────────────────────────────────────────
+
+export function revenuePage(): string {
+  const body = `
+${nav("revenue")}
+<div class="container">
+  <h1>Keuntungan & Margin</h1>
+
+  <!-- Summary cards -->
+  <div class="grid-4" id="rev-summary" style="margin-bottom:1.5rem">
+    <div class="stat-card">
+      <div class="stat-label">Pendapatan Hari Ini</div>
+      <div class="stat-value green" id="rev-today-revenue">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Margin Hari Ini</div>
+      <div class="stat-value green" id="rev-today-margin">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pendapatan Bulan Ini</div>
+      <div class="stat-value green" id="rev-month-revenue">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Margin Bulan Ini</div>
+      <div class="stat-value green" id="rev-month-margin">…</div>
+    </div>
+  </div>
+
+  <!-- Tab selector -->
+  <div class="card">
+    <div class="section-header" style="margin-bottom:1.25rem">
+      <h2 id="chart-title">Grafik Keuntungan</h2>
+      <div class="flex gap-1">
+        <button class="btn btn-primary btn-sm" id="tab-daily" onclick="switchTab('daily')">Harian</button>
+        <button class="btn btn-ghost btn-sm" id="tab-weekly" onclick="switchTab('weekly')">Mingguan</button>
+        <button class="btn btn-ghost btn-sm" id="tab-monthly" onclick="switchTab('monthly')">Bulanan</button>
+      </div>
+    </div>
+    <div style="position:relative;height:320px">
+      <canvas id="rev-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Detail table -->
+  <div class="card mt-1">
+    <h2 id="table-title" style="margin-bottom:1rem">Detail Harian (30 Hari Terakhir)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Periode</th>
+          <th>Transaksi</th>
+          <th>Pendapatan</th>
+          <th>Modal</th>
+          <th>Margin</th>
+          <th>Margin %</th>
+        </tr>
+      </thead>
+      <tbody id="rev-tbody">
+        <tr><td colspan="6" class="text-sm" style="padding:1.5rem;text-align:center">Memuat…</td></tr>
+      </tbody>
+    </table>
+    <div id="rev-total-row" class="flex" style="padding:0.75rem;border-top:1px solid #2d3748;font-size:0.875rem;gap:2rem;justify-content:flex-end;color:#94a3b8"></div>
+  </div>
+
+  <p class="text-sm" style="margin-top:0.75rem">* Modal dihitung dari harga supplier (basePrice) produk saat ini. Angka margin bersifat estimasi.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+let revenueData = null;
+let currentTab = 'daily';
+let chart = null;
+
+const idr = n => 'Rp\\u00a0' + Number(n).toLocaleString('id-ID');
+const pct = (margin, revenue) => revenue > 0 ? (margin / revenue * 100).toFixed(1) + '%' : '—';
+
+function formatPeriod(iso, tab) {
+  const d = new Date(iso);
+  if (tab === 'daily') return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (tab === 'weekly') {
+    const end = new Date(d); end.setDate(end.getDate() + 6);
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' – ' + end.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+}
+
+function shortLabel(iso, tab) {
+  const d = new Date(iso);
+  if (tab === 'daily') return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+  if (tab === 'weekly') return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+  return d.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
+}
+
+function renderChart(rows, tab) {
+  const labels = rows.map(r => shortLabel(r.period, tab));
+  const revenues = rows.map(r => r.revenue);
+  const costs = rows.map(r => r.cost);
+  const margins = rows.map(r => r.margin);
+
+  if (chart) chart.destroy();
+  const ctx = document.getElementById('rev-chart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Pendapatan',
+          data: revenues,
+          backgroundColor: 'rgba(59,130,246,0.6)',
+          borderColor: '#3b82f6',
+          borderWidth: 1,
+          order: 2,
+        },
+        {
+          label: 'Modal',
+          data: costs,
+          backgroundColor: 'rgba(100,116,139,0.5)',
+          borderColor: '#64748b',
+          borderWidth: 1,
+          order: 3,
+        },
+        {
+          label: 'Margin',
+          data: margins,
+          type: 'line',
+          borderColor: '#34d399',
+          backgroundColor: 'rgba(52,211,153,0.15)',
+          borderWidth: 2,
+          pointRadius: 3,
+          fill: false,
+          tension: 0.3,
+          order: 1,
+          yAxisID: 'y',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' ' + ctx.dataset.label + ': ' + idr(ctx.parsed.y),
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#64748b', maxRotation: 45 }, grid: { color: '#1a1f2e' } },
+        y: { ticks: { color: '#64748b', callback: v => 'Rp ' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#1a1f2e' } },
+      },
+    },
+  });
+}
+
+function renderTable(rows, tab) {
+  const tbody = document.getElementById('rev-tbody');
+  const totalRow = document.getElementById('rev-total-row');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-sm" style="padding:1.5rem;text-align:center">Belum ada data transaksi sukses.</td></tr>';
+    totalRow.innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = [...rows].reverse().map(r => {
+    const m = r.margin;
+    const mColor = m >= 0 ? 'color:#34d399' : 'color:#f87171';
+    return \`<tr>
+      <td class="text-sm">\${formatPeriod(r.period, tab)}</td>
+      <td>\${r.orderCount}</td>
+      <td class="text-sm">\${idr(r.revenue)}</td>
+      <td class="text-sm">\${idr(r.cost)}</td>
+      <td class="text-sm" style="\${mColor}">\${idr(m)}</td>
+      <td class="text-sm" style="\${mColor}">\${pct(m, r.revenue)}</td>
+    </tr>\`;
+  }).join('');
+
+  const totRev = rows.reduce((s, r) => s + r.revenue, 0);
+  const totCost = rows.reduce((s, r) => s + r.cost, 0);
+  const totMargin = totRev - totCost;
+  totalRow.innerHTML = \`
+    <span>Total Pendapatan: <strong style="color:#e2e8f0">\${idr(totRev)}</strong></span>
+    <span>Total Modal: <strong style="color:#e2e8f0">\${idr(totCost)}</strong></span>
+    <span>Total Margin: <strong style="color:\${totMargin >= 0 ? '#34d399' : '#f87171'}">\${idr(totMargin)}</strong></span>
+    <span>Rata-rata Margin: <strong style="color:\${totMargin >= 0 ? '#34d399' : '#f87171'}">\${pct(totMargin, totRev)}</strong></span>
+  \`;
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  ['daily','weekly','monthly'].forEach(t => {
+    const btn = document.getElementById('tab-' + t);
+    btn.className = 'btn btn-sm ' + (t === tab ? 'btn-primary' : 'btn-ghost');
+  });
+  const titles = { daily: 'Harian (30 Hari Terakhir)', weekly: 'Mingguan (12 Minggu Terakhir)', monthly: 'Bulanan (12 Bulan Terakhir)' };
+  document.getElementById('chart-title').textContent = 'Grafik Keuntungan';
+  document.getElementById('table-title').textContent = 'Detail ' + titles[tab];
+  if (revenueData) {
+    renderChart(revenueData[tab], tab);
+    renderTable(revenueData[tab], tab);
+  }
+}
+
+function updateSummaryCards(data) {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayRow = data.daily.find(r => r.period.slice(0, 10) === todayIso);
+  document.getElementById('rev-today-revenue').textContent = idr(todayRow?.revenue ?? 0);
+  document.getElementById('rev-today-margin').textContent = idr(todayRow?.margin ?? 0);
+
+  const monthIso = new Date().toISOString().slice(0, 7);
+  const monthRow = data.monthly.find(r => r.period.slice(0, 7) === monthIso);
+  document.getElementById('rev-month-revenue').textContent = idr(monthRow?.revenue ?? 0);
+  document.getElementById('rev-month-margin').textContent = idr(monthRow?.margin ?? 0);
+}
+
+async function loadRevenue() {
+  const res = await apiFetch('/api/admin/revenue');
+  if (!res) return;
+  revenueData = await res.json();
+  updateSummaryCards(revenueData);
+  switchTab('daily');
+}
+
+loadRevenue();
+</script>`;
+  return layout("Keuntungan", body);
+}
+
+// ─── Server Discord Page ──────────────────────────────────────────────────────
+
+export function serversPage(): string {
+  const body = `
+${nav("servers")}
+<div class="container">
+  <h1>Server Discord</h1>
+
+  <div class="grid-4" style="margin-bottom:1.5rem">
+    <div class="stat-card">
+      <div class="stat-label">Total Server</div>
+      <div class="stat-value" id="srv-total">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Dengan Inviter</div>
+      <div class="stat-value green" id="srv-with-inviter">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Tanpa Inviter</div>
+      <div class="stat-value yellow" id="srv-no-inviter">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Nama Belum Diketahui</div>
+      <div class="stat-value red" id="srv-no-name">…</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-header">
+      <h2>Daftar Server</h2>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <input id="srv-search" placeholder="Cari nama server..." style="width:200px;padding:0.35rem 0.65rem;font-size:0.8rem">
+        <button class="btn btn-ghost btn-sm" onclick="loadServers()">↻ Refresh</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nama Server</th>
+          <th>Guild ID</th>
+          <th>Inviter</th>
+          <th>Tanggal Masuk</th>
+        </tr>
+      </thead>
+      <tbody id="srv-tbody">
+        <tr><td colspan="5" style="text-align:center;color:#64748b;padding:2rem">Memuat…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let allServers = [];
+
+function renderRows(servers) {
+  const tbody = document.getElementById('srv-tbody');
+  if (servers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b;padding:2rem">Tidak ada data</td></tr>';
+    return;
+  }
+  tbody.innerHTML = servers.map((s, i) => \`
+    <tr>
+      <td style="color:#64748b">\${i + 1}</td>
+      <td>\${s.guildName ? \`<b>\${esc(s.guildName)}</b>\` : '<span style="color:#64748b">Tidak diketahui</span>'}</td>
+      <td style="font-family:monospace;font-size:0.8rem;color:#94a3b8">\${esc(s.guildId)}</td>
+      <td>\${s.inviterUsername ? \`<span class="badge badge-blue">@\${esc(s.inviterUsername)}</span>\` : '<span style="color:#64748b">—</span>'}</td>
+      <td style="color:#94a3b8;font-size:0.8rem">\${new Date(s.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jakarta' })} WIB</td>
+    </tr>
+  \`).join('');
+}
+
+async function loadServers() {
+  const res = await apiFetch('/api/admin/servers');
+  if (!res) return;
+  const data = await res.json();
+  allServers = data.servers;
+
+  document.getElementById('srv-total').textContent = data.total;
+  document.getElementById('srv-with-inviter').textContent = data.withInviter;
+  document.getElementById('srv-no-inviter').textContent = data.total - data.withInviter;
+  document.getElementById('srv-no-name').textContent = data.noName;
+
+  renderRows(allServers);
+}
+
+document.getElementById('srv-search').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  const filtered = q ? allServers.filter(s => (s.guildName ?? '').toLowerCase().includes(q) || s.guildId.includes(q) || (s.inviterUsername ?? '').toLowerCase().includes(q)) : allServers;
+  renderRows(filtered);
+});
+
+loadServers();
+</script>`;
+  return layout("Server Discord", body);
+}
+

@@ -631,6 +631,70 @@ export async function notifyUserFeedbackClosed(
   await sendToUser(platform, platformUserId, text);
 }
 
+// ─── Review Request ───────────────────────────────────────────────────────────
+
+/**
+ * Kirim permintaan review opsional ke user setelah top up SUCCESS.
+ * Gagal kirim tidak boleh menghentikan flow utama — selalu catch di pemanggil.
+ */
+export async function notifyReviewRequest(
+  orderId: string,
+  platform: Platform,
+  platformUserId: string,
+): Promise<void> {
+  switch (platform) {
+    case "TELEGRAM":
+      await getTelegramApi().sendMessage(
+        platformUserId,
+        `Gimana pengalaman top up kamu tadi? 😊\nKasih rating yuk, cuma sebentar!`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "⭐",     callback_data: `rv_star:${orderId}:1` },
+                { text: "⭐⭐",   callback_data: `rv_star:${orderId}:2` },
+                { text: "⭐⭐⭐", callback_data: `rv_star:${orderId}:3` },
+                { text: "⭐⭐⭐⭐",  callback_data: `rv_star:${orderId}:4` },
+                { text: "⭐⭐⭐⭐⭐", callback_data: `rv_star:${orderId}:5` },
+              ],
+              [{ text: "Lewati", callback_data: `rv_skip:${orderId}` }],
+            ],
+          },
+        },
+      );
+      break;
+
+    case "WHATSAPP":
+      await sendWhatsApp(
+        platformUserId,
+        `Gimana pengalaman top up kamu tadi? 😊\n\n` +
+        `Ketik angka untuk beri rating:\n` +
+        `1 - ⭐ Kurang\n` +
+        `2 - ⭐⭐ Cukup\n` +
+        `3 - ⭐⭐⭐ Lumayan\n` +
+        `4 - ⭐⭐⭐⭐ Bagus\n` +
+        `5 - ⭐⭐⭐⭐⭐ Mantap!\n` +
+        `0 - Lewati`,
+      );
+      await redis.set(`wa:review:pending:${platformUserId}`, orderId, "EX", 60 * 30);
+      break;
+
+    case "DISCORD":
+      await sendDiscordDm(
+        platformUserId,
+        `Gimana pengalaman top up kamu tadi? 😊`,
+        [{
+          type: 1,
+          components: [
+            { type: 2, style: 2, label: "⭐ Beri Review", custom_id: `rv_start:${orderId}` },
+            { type: 2, style: 4, label: "Lewati",         custom_id: `rv_skip:${orderId}` },
+          ],
+        }],
+      );
+      break;
+  }
+}
+
 // ─── Internal Router ──────────────────────────────────────────────────────────
 
 /**

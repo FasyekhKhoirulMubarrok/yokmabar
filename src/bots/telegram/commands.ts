@@ -1,6 +1,7 @@
 import { InlineKeyboard, type Bot } from "grammy";
 import { db } from "../../db/client.js";
 import { redis } from "../../db/redis.js";
+import { saveReview, postReviewToDiscord } from "../../services/review.service.js";
 import { cancelOrder } from "../../services/order.service.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { getPointSummary } from "../../services/point.service.js";
@@ -308,6 +309,90 @@ export function registerCancelOrderHandler(bot: Bot<BotContext>): void {
     } catch { /* pesan mungkin sudah berubah */ }
 
     await ctx.reply("😊 Order berhasil dibatalkan. Ketik /topup untuk order baru ya!");
+  });
+}
+
+// ─── Review Handler ───────────────────────────────────────────────────────────
+
+export function registerReviewHandler(bot: Bot<BotContext>): void {
+  // Star button clicked → simpan ke Redis, minta komentar
+  bot.callbackQuery(/^rv_star:.+:\d+$/, async (ctx) => {
+    const parts = ctx.callbackQuery.data.split(":");
+    const orderId = parts[1];
+    const stars = parts[2];
+    const chatId = ctx.chat?.id.toString();
+
+    if (orderId === undefined || stars === undefined || chatId === undefined) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
+    await redis.set(`tg:review:pending:${chatId}`, `${orderId}:${stars}`, "EX", 60 * 30);
+    await ctx.answerCallbackQuery(`${"⭐".repeat(Number(stars))} terpilih!`);
+    try {
+      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+    } catch { /* ignore */ }
+    await ctx.reply(
+      `${"⭐".repeat(Number(stars))} Makasih ratingnya!\n\n` +
+      `Mau tambah komentar? Ketik pesanmu atau balas *0* untuk lewati.`,
+    );
+  });
+
+  // Skip button clicked → hapus tombol, selesai
+  bot.callbackQuery(/^rv_skip:.+$/, async (ctx) => {
+    await ctx.answerCallbackQuery("Oke, makasih! 🙏");
+    try {
+      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+    } catch { /* ignore */ }
+  });
+
+  // Text message — komentar review atau "0" untuk lewati
+  bot.on("message:text", async (ctx, next) => {
+    const chatId = ctx.chat.id.toString();
+    const text = ctx.message.text;
+
+    if (text.startsWith("/")) { await next(); return; }
+
+    const pendingKey = `tg:review:pending:${chatId}`;
+    const pendingReview = await redis.get(pendingKey);
+
+    if (pendingReview === null) { await next(); return; }
+
+    await redis.del(pendingKey);
+    const parts = pendingReview.split(":");
+    const orderId = parts[0];
+    const stars = Number(parts[1]);
+    if (orderId === undefined || isNaN(stars)) { await next(); return; }
+
+    const comment = text.trim() === "0" ? undefined : text.trim() || undefined;
+
+    try {
+      const order = await db.order.findUnique({
+        where: { id: orderId },
+        include: { user: true },
+      });
+      if (order === null) {
+        await ctx.reply("😅 Order tidak ditemukan.");
+        return;
+      }
+
+      await saveReview({ orderId, userId: order.userId, stars, comment, platform: "TELEGRAM" });
+      await postReviewToDiscord({
+        orderId,
+        paymentRef: order.paymentRef ?? orderId,
+        game: order.game,
+        itemName: order.itemName,
+        stars,
+        comment,
+        platform: "TELEGRAM",
+        username: order.user.username,
+      }).catch(() => null);
+
+      await ctx.reply(`Makasih reviewnya! ${"⭐".repeat(stars)} 🙏`);
+    } catch (err) {
+      console.error("[telegram] review comment error:", err);
+      await ctx.reply("😅 Gagal menyimpan review. Coba lagi ya!");
+    }
   });
 }
 

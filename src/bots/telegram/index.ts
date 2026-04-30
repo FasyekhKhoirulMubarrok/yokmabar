@@ -12,6 +12,7 @@ import {
   registerFeedbackCommand,
   registerAdminFeedbackReplyHandler,
   registerCancelOrderHandler,
+  registerReviewHandler,
 } from "./commands.js";
 
 // ─── Bot Instance ─────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ registerTopupCommand(telegramBot);
 registerRiwayatCommand(telegramBot);
 registerPoinCommand(telegramBot);
 registerFeedbackCommand(telegramBot);
+registerReviewHandler(telegramBot);
 registerAdminFeedbackReplyHandler(telegramBot);
 registerCancelOrderHandler(telegramBot);
 

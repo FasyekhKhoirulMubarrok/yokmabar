@@ -5,7 +5,7 @@ import stats from "./stats.js";
 import events from "./events.js";
 import feedback from "./feedback.js";
 import products from "./products.js";
-import { loginPage, dashboardPage, eventsPage, feedbackPage } from "./pages.js";
+import { loginPage, dashboardPage, eventsPage, feedbackPage, revenuePage, serversPage } from "./pages.js";
 
 const admin = new Hono();
 
@@ -36,7 +36,9 @@ admin.use("/admin/*", adminPageMiddleware);
 
 admin.get("/admin", (c) => c.html(dashboardPage()));
 admin.get("/admin/", (c) => c.redirect("/admin"));
+admin.get("/admin/revenue", (c) => c.html(revenuePage()));
 admin.get("/admin/events", (c) => c.html(eventsPage()));
 admin.get("/admin/feedback", (c) => c.html(feedbackPage()));
+admin.get("/admin/servers", (c) => c.html(serversPage()));
 
 export default admin;

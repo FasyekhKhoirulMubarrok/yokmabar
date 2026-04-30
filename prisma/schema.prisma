@@ -17,6 +17,7 @@ model User {
   points          Point[]
   serverReferrals ServerReferral[]
   feedbacks       Feedback[]
+  reviews         Review[]
 
   @@unique([platform, platformUserId])
 }
@@ -79,6 +80,7 @@ model Order {
   updatedAt      DateTime    @updatedAt
   expiredAt      DateTime
   point          Point?
+  review         Review?
 
   @@index([userId])
   @@index([status])
@@ -88,8 +90,9 @@ model Order {
 model ServerReferral {
   id            String   @id @default(uuid())
   guildId       String   @unique
-  inviterUserId String
-  inviter       User     @relation(fields: [inviterUserId], references: [id])
+  guildName     String?
+  inviterUserId String?
+  inviter       User?    @relation(fields: [inviterUserId], references: [id])
   createdAt     DateTime @default(now())
 
   @@index([inviterUserId])
@@ -169,4 +172,18 @@ enum PointType {
   EARNED
   REDEEMED
   EXPIRED
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  stars     Int
+  comment   String?
+  platform  Platform
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

@@ -10,6 +10,7 @@ import {
   notifyFailed,
   notifyAdminOrderFailed,
   notifyReferralBonus,
+  notifyReviewRequest,
 } from "../services/notification.service.js";
 import { tryAwardReferralBonus } from "../services/referral.service.js";
 
@@ -99,6 +100,8 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
       totalPoints,
       topUpResult.sn,
     );
+
+    notifyReviewRequest(order.id, order.user.platform, order.user.platformUserId).catch(() => null);
 
     // Beri bonus poin ke inviter jika order dari server Discord referral
     const referralResult = await tryAwardReferralBonus(

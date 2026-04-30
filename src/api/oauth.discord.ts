@@ -26,7 +26,7 @@ app.get("/callback", async (c) => {
     const user = await db.user.findUnique({ where: { id: state } });
 
     if (user !== null) {
-      await recordServerReferral(guildId, user.platformUserId, user.username ?? user.platformUserId);
+      await recordServerReferral(guildId, null, user.platformUserId, user.username ?? user.platformUserId);
       console.info(`[oauth] Referral via link — guild: ${guildId}, inviter: ${user.username ?? user.id}`);
     }
   } catch (err) {

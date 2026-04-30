@@ -55,31 +55,56 @@ export async function getReferralStats(userId: string): Promise<ReferralStats> {
 /**
  * Simpan siapa yang mengundang bot ke server Discord.
  * Dipanggil saat event guildCreate oleh discord bot.
- * Jika server sudah ada di DB, abaikan (tidak override inviter).
+ * Jika server sudah ada di DB, hanya update guildName jika belum tersimpan.
  */
 export async function recordServerReferral(
   guildId: string,
-  inviterDiscordId: string,
-  inviterUsername: string,
+  guildName: string | null,
+  inviterDiscordId?: string,
+  inviterUsername?: string,
 ): Promise<void> {
-  // Cegah override — jika sudah ada, skip
   const existing = await db.serverReferral.findUnique({ where: { guildId } });
-  if (existing !== null) return;
 
-  const user = await db.user.upsert({
-    where: {
-      platform_platformUserId: {
-        platform: "DISCORD",
-        platformUserId: inviterDiscordId,
-      },
-    },
-    create: { platform: "DISCORD", platformUserId: inviterDiscordId, username: inviterUsername },
-    update: { username: inviterUsername },
-  });
+  if (existing !== null) {
+    // Update nama server jika belum ada
+    if (existing.guildName === null && guildName !== null) {
+      await db.serverReferral.update({ where: { guildId }, data: { guildName } });
+    }
+    return;
+  }
+
+  let inviterUserId: string | undefined;
+  if (inviterDiscordId !== undefined && inviterUsername !== undefined) {
+    const user = await db.user.upsert({
+      where: { platform_platformUserId: { platform: "DISCORD", platformUserId: inviterDiscordId } },
+      create: { platform: "DISCORD", platformUserId: inviterDiscordId, username: inviterUsername },
+      update: { username: inviterUsername },
+    });
+    inviterUserId = user.id;
+  }
 
   await db.serverReferral.create({
-    data: { guildId, inviterUserId: user.id },
+    data: { guildId, guildName, ...(inviterUserId !== undefined && { inviterUserId }) },
   });
+}
+
+/**
+ * Backfill nama server untuk semua guild yang sedang dimasuki bot.
+ * Dipanggil sekali saat bot ready.
+ */
+export async function syncGuildNames(
+  guilds: Array<{ id: string; name: string }>,
+): Promise<void> {
+  for (const guild of guilds) {
+    const existing = await db.serverReferral.findUnique({ where: { guildId: guild.id } });
+    if (existing !== null) {
+      if (existing.guildName === null) {
+        await db.serverReferral.update({ where: { guildId: guild.id }, data: { guildName: guild.name } });
+      }
+    } else {
+      await db.serverReferral.create({ data: { guildId: guild.id, guildName: guild.name } });
+    }
+  }
 }
 
 // ─── Award Referral Bonus ─────────────────────────────────────────────────────
@@ -100,7 +125,7 @@ export async function tryAwardReferralBonus(
     include: { inviter: true },
   });
 
-  if (referral === null) return null;
+  if (referral === null || referral.inviterUserId === null) return null;
 
   // Jangan beri bonus jika inviter = buyer (self-referral)
   if (referral.inviterUserId === orderUserId) return null;
