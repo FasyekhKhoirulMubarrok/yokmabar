@@ -145,6 +145,8 @@ export async function tryAwardReferralBonus(
     },
   });
 
+  if (referral.inviter === null) return null;
+
   return {
     inviterDiscordId: referral.inviter.platformUserId,
     bonusPoints,

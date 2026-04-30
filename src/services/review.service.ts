@@ -22,7 +22,7 @@ export async function saveReview(input: {
   orderId: string;
   userId: string;
   stars: number;
-  comment?: string;
+  comment: string | undefined;
   platform: Platform;
 }): Promise<void> {
   if (await hasReview(input.orderId)) return;
@@ -44,7 +44,7 @@ export async function postReviewToDiscord(input: {
   game: string;
   itemName: string;
   stars: number;
-  comment?: string;
+  comment: string | undefined;
   platform: Platform;
   username: string | null;
 }): Promise<void> {
