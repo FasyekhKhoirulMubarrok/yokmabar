@@ -232,6 +232,7 @@ function landingLayout(title: string, description: string, body: string): string
 
     /* ─── HERO ─────────────────────────────────────────────────────────── */
     #hero { padding-top: 80px; padding-bottom: 64px; text-align: center; }
+    .hero-right { display: none; }
 
     .hero-badge {
       display: inline-flex; align-items: center; gap: 5px;

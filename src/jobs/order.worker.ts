@@ -30,13 +30,18 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
     throw new Error(`Order ${orderId} tidak ditemukan, skip.`);
   }
 
-  // Guard: hanya proses order yang masih PAID
-  if (order.status !== "PAID") {
-    return; // Sudah diproses sebelumnya (idempotent)
+  // Guard: hanya proses order PAID atau PROCESSING (attempt ulang setelah network error)
+  if (order.status !== "PAID" && order.status !== "PROCESSING") {
+    return;
   }
 
-  // PAID → PROCESSING (gunakan orderId sebagai ref_id Digiflazz)
-  await markAsProcessing(orderId, orderId);
+  // PAID → PROCESSING; skip jika sudah PROCESSING dari attempt sebelumnya
+  if (order.status === "PAID") {
+    await markAsProcessing(orderId, orderId);
+  }
+
+  const maxAttempts = job.opts.attempts ?? 1;
+  const isLastAttempt = job.attemptsMade >= maxAttempts - 1;
 
   let topUpResult;
   try {
@@ -51,23 +56,26 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
       customerNo,
     });
   } catch (err) {
-    const adminNote =
-      err instanceof SupplierError ? err.message : "Unknown supplier error";
+    const isTransactionFailed =
+      err instanceof SupplierError && err.code === "TRANSACTION_FAILED";
 
-    const failed = await markAsFailed(orderId, adminNote);
+    // Mark FAILED + notif hanya jika: Digiflazz tolak transaksi (tidak ada gunanya retry)
+    // atau sudah habis semua attempt (REQUEST_FAILED / network error)
+    if (isTransactionFailed || isLastAttempt) {
+      const adminNote =
+        err instanceof SupplierError ? err.message : "Unknown supplier error";
 
-    await Promise.allSettled([
-      notifyFailed(failed, order.user.platform, order.user.platformUserId),
-      notifyAdminOrderFailed(failed, order.user.platform, order.user.username),
-    ]);
+      const failed = await markAsFailed(orderId, adminNote);
 
-    // TRANSACTION_FAILED = Digiflazz tolak transaksi (Gagal/saldo kurang/dll)
-    // → tidak ada gunanya retry, langsung selesai
-    // REQUEST_FAILED = error jaringan/HTTP → re-throw supaya BullMQ retry
-    if (err instanceof SupplierError && err.code === "TRANSACTION_FAILED") {
-      return;
+      await Promise.allSettled([
+        notifyFailed(failed, order.user.platform, order.user.platformUserId),
+        notifyAdminOrderFailed(failed, order.user.platform, order.user.username),
+      ]);
+
+      if (isTransactionFailed) return;
     }
 
+    // REQUEST_FAILED + masih ada sisa attempt → re-throw, order tetap PROCESSING
     throw err;
   }
 
