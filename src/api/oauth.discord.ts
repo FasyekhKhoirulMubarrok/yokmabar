@@ -14,7 +14,7 @@ const app = new Hono();
 
 app.get("/callback", async (c) => {
   const guildId = c.req.query("guild_id");
-  const state   = c.req.query("state");   // internal User.id
+  const state = c.req.query("state");   // internal User.id
 
   // Jika salah satu tidak ada, bukan dari link referral kita — redirect saja
   if (guildId == null || state == null || state.trim() === "") {
