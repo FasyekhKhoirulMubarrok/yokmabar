@@ -1,6 +1,7 @@
 import { redis } from "../../db/redis.js";
 import { db } from "../../db/client.js";
 import { saveReview, postReviewToDiscord } from "../../services/review.service.js";
+import { logger } from "../../utils/logger.js";
 import {
   getPopularBrands,
   getProductsByBrand,
@@ -233,7 +234,9 @@ export async function handleWhatsAppMessage(
           comment,
           platform: "WHATSAPP",
           username: order.user.username ?? phone,
-        }).catch(() => null);
+        }).catch((err: unknown) => {
+          logger.error("Failed to post review to Discord", { orderId, err });
+        });
         await sendWhatsApp(phone, `Makasih reviewnya! ${"⭐".repeat(stars)} 🙏`);
       }
     }

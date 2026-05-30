@@ -3,6 +3,7 @@ import { db } from "../../db/client.js";
 import { getBalance } from "../../services/balance.service.js";
 import { triggerOndemandSync } from "../../jobs/sync.worker.js";
 import { redis } from "../../db/redis.js";
+import { getReviewChannelId, setReviewChannelId } from "../../services/review.service.js";
 
 const stats = new Hono();
 
@@ -191,6 +192,46 @@ stats.get("/servers", async (c) => {
     noName: servers.filter((s) => s.guildName === null).length,
     servers: result,
   });
+});
+
+// ─── Review Channel Config ────────────────────────────────────────────────────
+
+// GET /api/admin/review-channel
+stats.get("/review-channel", async (c) => {
+  const channelId = await getReviewChannelId();
+  return c.json({ channelId });
+});
+
+// POST /api/admin/review-channel
+stats.post("/review-channel", async (c) => {
+  const body = await c.req.json<{ channelId?: string }>();
+  if (!body.channelId || body.channelId.trim() === "") {
+    return c.json({ message: "channelId wajib diisi" }, 400);
+  }
+  await setReviewChannelId(body.channelId.trim());
+  return c.json({ ok: true, channelId: body.channelId.trim() });
+});
+
+// GET /api/admin/reviews?page=1
+stats.get("/reviews", async (c) => {
+  const page = Math.max(1, parseInt(c.req.query("page") ?? "1"));
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const [reviews, total] = await Promise.all([
+    db.review.findMany({
+      orderBy: { order: { createdAt: "desc" } },
+      skip,
+      take: limit,
+      include: {
+        order: { select: { paymentRef: true, game: true, itemName: true, amount: true, createdAt: true } },
+        user: { select: { username: true, platform: true } },
+      },
+    }),
+    db.review.count(),
+  ]);
+
+  return c.json({ reviews, total, page, pages: Math.ceil(total / limit) });
 });
 
 export default stats;

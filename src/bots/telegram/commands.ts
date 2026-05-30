@@ -2,6 +2,7 @@ import { InlineKeyboard, type Bot } from "grammy";
 import { db } from "../../db/client.js";
 import { redis } from "../../db/redis.js";
 import { saveReview, postReviewToDiscord } from "../../services/review.service.js";
+import { logger } from "../../utils/logger.js";
 import { cancelOrder } from "../../services/order.service.js";
 import { getRecentOrders, formatOrderHistory } from "../../services/history.service.js";
 import { getPointSummary } from "../../services/point.service.js";
@@ -386,7 +387,9 @@ export function registerReviewHandler(bot: Bot<BotContext>): void {
         comment,
         platform: "TELEGRAM",
         username: order.user.username,
-      }).catch(() => null);
+      }).catch((err: unknown) => {
+        logger.error("Failed to post review to Discord", { orderId, err });
+      });
 
       await ctx.reply(`Makasih reviewnya! ${"⭐".repeat(stars)} 🙏`);
     } catch (err) {

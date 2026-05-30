@@ -171,13 +171,14 @@ export function loginPage(error?: string): string {
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
-function nav(active: "dashboard" | "events" | "feedback" | "revenue" | "servers"): string {
+function nav(active: "dashboard" | "events" | "feedback" | "revenue" | "servers" | "reviews"): string {
   const links = [
     { href: "/admin", label: "Dashboard", key: "dashboard" },
     { href: "/admin/revenue", label: "Keuntungan", key: "revenue" },
     { href: "/admin/events", label: "Events", key: "events" },
     { href: "/admin/feedback", label: "Feedback", key: "feedback" },
     { href: "/admin/servers", label: "Server Discord", key: "servers" },
+    { href: "/admin/reviews", label: "Reviews", key: "reviews" },
   ];
   return `<nav class="nav">
   <span class="nav-brand">YokMabar Admin</span>
@@ -1120,5 +1121,137 @@ document.getElementById('srv-search').addEventListener('input', (e) => {
 loadServers();
 </script>`;
   return layout("Server Discord", body);
+}
+
+// ─── Reviews Page ─────────────────────────────────────────────────────────────
+
+export function reviewsPage(): string {
+  const body = `
+${nav("reviews")}
+<div class="container">
+  <h1>Reviews</h1>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <h2 style="margin-bottom:1rem;">Channel Announce Discord</h2>
+    <div style="display:flex;gap:0.75rem;align-items:flex-end;">
+      <div style="flex:1;">
+        <label>Channel ID</label>
+        <input id="channel-input" type="text" placeholder="e.g. 1234567890123456789" />
+      </div>
+      <button class="btn btn-primary" onclick="saveChannel()" style="white-space:nowrap;flex-shrink:0;">Simpan</button>
+    </div>
+    <p id="channel-current" style="font-size:0.8rem;color:#64748b;margin-top:0.5rem;">Memuat...</p>
+  </div>
+
+  <div class="card">
+    <div class="section-header">
+      <h2 style="margin-bottom:0;">Daftar Review</h2>
+      <span id="review-total" style="font-size:0.85rem;color:#64748b;"></span>
+    </div>
+    <div style="overflow-x:auto;margin-top:1rem;">
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Platform</th>
+            <th>Bintang</th>
+            <th>Game</th>
+            <th>Item</th>
+            <th>Komentar</th>
+            <th>Order</th>
+            <th>Waktu</th>
+          </tr>
+        </thead>
+        <tbody id="review-tbody">
+          <tr><td colspan="8" class="text-sm" style="text-align:center;padding:2rem;">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="review-pagination" style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;flex-wrap:wrap;"></div>
+  </div>
+</div>
+
+<script>
+${escapeHtmlJs}
+
+const PLATFORM_BADGE = { TELEGRAM: 'badge-blue', DISCORD: 'badge-green', WHATSAPP: 'badge-yellow' };
+
+let currentPage = 1;
+
+async function loadChannel() {
+  const res = await apiFetch('/api/admin/review-channel');
+  if (!res) return;
+  const data = await res.json();
+  const el = document.getElementById('channel-current');
+  if (data.channelId) {
+    document.getElementById('channel-input').value = data.channelId;
+    el.textContent = 'Channel aktif: ' + data.channelId;
+  } else {
+    el.textContent = 'Belum dikonfigurasi. Isi Channel ID di atas.';
+  }
+}
+
+async function saveChannel() {
+  const channelId = document.getElementById('channel-input').value.trim();
+  if (!channelId) { toast('Channel ID tidak boleh kosong', false); return; }
+  const res = await apiFetch('/api/admin/review-channel', { method: 'POST', body: JSON.stringify({ channelId }) });
+  if (!res) return;
+  const data = await res.json();
+  if (res.ok) {
+    toast('Channel berhasil disimpan');
+    document.getElementById('channel-current').textContent = 'Channel aktif: ' + data.channelId;
+  } else {
+    toast(data.message ?? 'Gagal menyimpan', false);
+  }
+}
+
+async function loadReviews(page = 1) {
+  currentPage = page;
+  const res = await apiFetch(\`/api/admin/reviews?page=\${page}\`);
+  if (!res) return;
+  const data = await res.json();
+
+  document.getElementById('review-total').textContent = \`\${data.total} review\`;
+
+  const tbody = document.getElementById('review-tbody');
+  if (data.reviews.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-sm" style="text-align:center;padding:2rem;">Belum ada review.</td></tr>';
+  } else {
+    tbody.innerHTML = data.reviews.map(r => {
+      const stars = '⭐'.repeat(r.stars) + '☆'.repeat(5 - r.stars);
+      const comment = r.comment ? esc(r.comment) : '<span style="color:#64748b">—</span>';
+      const paymentRef = r.order?.paymentRef ? \`#\${esc(r.order.paymentRef)}\` : '—';
+      const time = r.order?.createdAt
+        ? new Date(r.order.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jakarta' }) + ' WIB'
+        : '—';
+      return \`<tr>
+        <td class="text-sm">\${esc(r.user?.username ?? r.userId)}</td>
+        <td><span class="badge \${PLATFORM_BADGE[r.user?.platform] ?? 'badge-gray'}">\${r.user?.platform ?? '—'}</span></td>
+        <td style="font-size:0.9rem">\${stars}</td>
+        <td class="text-sm">\${esc(r.order?.game ?? '—')}</td>
+        <td class="text-sm">\${esc(r.order?.itemName ?? '—')}</td>
+        <td class="text-sm" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="\${r.comment ? esc(r.comment) : ''}">\${comment}</td>
+        <td style="font-family:monospace;font-size:0.78rem">\${paymentRef}</td>
+        <td class="text-sm">\${time}</td>
+      </tr>\`;
+    }).join('');
+  }
+
+  const pages = data.pages ?? 1;
+  const pagination = document.getElementById('review-pagination');
+  pagination.innerHTML = '';
+  for (let i = 1; i <= pages; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm ' + (i === page ? 'btn-primary' : 'btn-ghost');
+    btn.textContent = String(i);
+    btn.onclick = () => loadReviews(i);
+    pagination.appendChild(btn);
+  }
+}
+
+loadChannel();
+loadReviews(1);
+</script>`;
+  return layout("Reviews", body);
 }
 

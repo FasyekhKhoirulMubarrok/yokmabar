@@ -5,7 +5,7 @@ import stats from "./stats.js";
 import events from "./events.js";
 import feedback from "./feedback.js";
 import products from "./products.js";
-import { loginPage, dashboardPage, eventsPage, feedbackPage, revenuePage, serversPage } from "./pages.js";
+import { loginPage, dashboardPage, eventsPage, feedbackPage, revenuePage, serversPage, reviewsPage } from "./pages.js";
 
 const admin = new Hono();
 
@@ -40,5 +40,6 @@ admin.get("/admin/revenue", (c) => c.html(revenuePage()));
 admin.get("/admin/events", (c) => c.html(eventsPage()));
 admin.get("/admin/feedback", (c) => c.html(feedbackPage()));
 admin.get("/admin/servers", (c) => c.html(serversPage()));
+admin.get("/admin/reviews", (c) => c.html(reviewsPage()));
 
 export default admin;

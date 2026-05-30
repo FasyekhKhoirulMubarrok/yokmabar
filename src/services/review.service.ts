@@ -1,4 +1,5 @@
 import { db } from "../db/client.js";
+import { redis } from "../db/redis.js";
 import { type Platform } from "@prisma/client";
 import { config } from "../config.js";
 import { REST, Routes } from "discord.js";
@@ -11,6 +12,19 @@ function getRest(): REST {
     _rest = new REST({ version: "10" }).setToken(config.DISCORD_BOT_TOKEN);
   }
   return _rest;
+}
+
+const REVIEW_CHANNEL_KEY = "config:review_channel_id";
+
+export async function getReviewChannelId(): Promise<string | null> {
+  const fromRedis = await redis.get(REVIEW_CHANNEL_KEY);
+  if (fromRedis !== null) return fromRedis;
+  const fromEnv = config.DISCORD_REVIEW_CHANNEL_ID;
+  return fromEnv.length > 0 ? fromEnv : null;
+}
+
+export async function setReviewChannelId(channelId: string): Promise<void> {
+  await redis.set(REVIEW_CHANNEL_KEY, channelId);
 }
 
 export async function hasReview(orderId: string): Promise<boolean> {
@@ -67,7 +81,12 @@ export async function postReviewToDiscord(input: {
     footer: { text: "YokMabar Reviews" },
   };
 
-  await getRest().post(Routes.channelMessages(config.DISCORD_REVIEW_CHANNEL_ID), {
+  const channelId = await getReviewChannelId();
+  if (channelId === null) {
+    throw new Error("Review channel ID not configured");
+  }
+
+  await getRest().post(Routes.channelMessages(channelId), {
     body: { embeds: [embed] },
   });
 }

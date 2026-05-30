@@ -8,6 +8,7 @@ import {
 } from "discord.js";
 import { db } from "../../../db/client.js";
 import { saveReview, hasReview, postReviewToDiscord } from "../../../services/review.service.js";
+import { logger } from "../../../utils/logger.js";
 
 export async function handleReviewStart(interaction: ButtonInteraction): Promise<void> {
   const orderId = interaction.customId.split(":")[1];
@@ -92,7 +93,9 @@ export async function handleReviewSubmit(interaction: ModalSubmitInteraction): P
     comment,
     platform: "DISCORD",
     username: order.user.username,
-  }).catch(() => null);
+  }).catch((err: unknown) => {
+    logger.error("Failed to post review to Discord", { orderId, err });
+  });
 
   await interaction.editReply(`Makasih reviewnya! ${"⭐".repeat(stars)} 🙏`);
 }
