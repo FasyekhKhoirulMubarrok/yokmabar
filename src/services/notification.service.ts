@@ -32,6 +32,12 @@ function formatRupiah(amount: number): string {
   return `Rp ${amount.toLocaleString("id-ID")}`;
 }
 
+// Escape karakter HTML agar tidak memecah parse_mode: "HTML" di Telegram.
+// Wajib dipakai untuk semua konten dinamis yang berasal dari user/supplier.
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function formatDateTime(date: Date): string {
   return date.toLocaleString("id-ID", {
     day: "2-digit",
@@ -50,7 +56,13 @@ function formatOrderRef(paymentRef: string): string {
 // ─── Platform Senders ─────────────────────────────────────────────────────────
 
 async function sendTelegram(chatId: string, text: string): Promise<void> {
-  await getTelegramApi().sendMessage(chatId, text, { parse_mode: "HTML" });
+  try {
+    await getTelegramApi().sendMessage(chatId, text, { parse_mode: "HTML" });
+  } catch {
+    // Fallback: kirim tanpa HTML parse mode jika ada karakter HTML bermasalah
+    const plain = text.replace(/<\/?[^>]+(>|$)/g, "");
+    await getTelegramApi().sendMessage(chatId, plain);
+  }
 }
 
 async function sendWhatsApp(phone: string, text: string): Promise<void> {
@@ -155,20 +167,19 @@ export async function notifySuccess(
       ? `\n+${pointsEarned} poin diterima · Total: ${totalPoints} poin`
       : "";
 
-  const nicknameLine =
-    sn !== undefined && sn.trim() !== ""
-      ? `\nNickname : ${sn.trim()}`
-      : "";
+  const snClean = sn !== undefined && sn.trim() !== "" ? sn.trim() : null;
+  const nicknameLine = snClean !== null ? `\nNickname : ${snClean}` : "";
 
   const itemLabel = stripBrandPrefix(order.game, order.itemName);
 
+  // escapeHtml wajib untuk semua konten dinamis dari supplier (sn, itemLabel, game)
   const text =
     `🎉 <b>Top up berhasil!</b>\n` +
-    `Order    : #${order.paymentRef}\n` +
-    `Game     : ${order.game}\n` +
-    `Item     : ${itemLabel}\n` +
+    `Order    : #${escapeHtml(order.paymentRef ?? "")}\n` +
+    `Game     : ${escapeHtml(order.game)}\n` +
+    `Item     : ${escapeHtml(itemLabel)}\n` +
     `Harga    : ${formatRupiah(order.amount)}` +
-    nicknameLine +
+    (snClean !== null ? `\nNickname : ${escapeHtml(snClean)}` : "") +
     `\n\nCek in-game sekarang dan langsung gas! 🚀` +
     pointLine;
 

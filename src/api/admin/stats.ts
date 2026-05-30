@@ -82,7 +82,28 @@ stats.get("/orders", async (c) => {
     db.order.count({ where }),
   ]);
 
-  return c.json({ orders, total, page, pages: Math.ceil(total / limit) });
+  // Batch-fetch guild names untuk order Discord
+  const guildIds = orders
+    .map((o) => o.discordGuildId)
+    .filter((id): id is string => id !== null);
+
+  const guildMap: Record<string, string | null> = {};
+  if (guildIds.length > 0) {
+    const guilds = await db.serverReferral.findMany({
+      where: { guildId: { in: guildIds } },
+      select: { guildId: true, guildName: true },
+    });
+    for (const g of guilds) {
+      guildMap[g.guildId] = g.guildName;
+    }
+  }
+
+  const ordersWithGuild = orders.map((o) => ({
+    ...o,
+    guildName: o.discordGuildId !== null ? (guildMap[o.discordGuildId] ?? null) : null,
+  }));
+
+  return c.json({ orders: ordersWithGuild, total, page, pages: Math.ceil(total / limit) });
 });
 
 // ─── Revenue / Margin ─────────────────────────────────────────────────────────

@@ -237,10 +237,10 @@ ${nav("dashboard")}
     </div>
     <table>
       <thead>
-        <tr><th>Order ID</th><th>Platform</th><th>User</th><th>Item</th><th>Harga</th><th>Status</th><th>Waktu</th></tr>
+        <tr><th>Order ID</th><th>Platform</th><th>User</th><th>Game ID</th><th>Item</th><th>Harga</th><th>Status</th><th>Waktu</th></tr>
       </thead>
       <tbody id="orders-body">
-        <tr><td colspan="7" class="text-sm" style="padding:1.5rem;text-align:center">Memuat…</td></tr>
+        <tr><td colspan="8" class="text-sm" style="padding:1.5rem;text-align:center">Memuat…</td></tr>
       </tbody>
     </table>
     <div id="orders-pagination" class="flex gap-1" style="margin-top:1rem;justify-content:center"></div>
@@ -309,19 +309,28 @@ async function loadOrders(page) {
   const d = await res.json();
   const tbody = document.getElementById('orders-body');
   if (d.orders.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-sm" style="padding:1.5rem;text-align:center">Tidak ada transaksi.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-sm" style="padding:1.5rem;text-align:center">Tidak ada transaksi.</td></tr>';
     document.getElementById('orders-pagination').innerHTML = '';
     return;
   }
-  tbody.innerHTML = d.orders.map(o => \`<tr>
-    <td style="font-family:monospace;font-size:0.78rem">\${esc(o.id.slice(0,8))}…</td>
-    <td><span class="badge \${PLATFORM_BADGE[o.user.platform] ?? 'badge-gray'}">\${o.user.platform}</span></td>
-    <td class="text-sm">\${esc(o.user.username ?? o.user.platformUserId)}</td>
-    <td class="text-sm">\${esc(o.itemName)}</td>
-    <td class="text-sm">Rp \${o.amount.toLocaleString('id-ID')}</td>
-    <td><span class="badge \${STATUS_BADGE[o.status] ?? 'badge-gray'}">\${o.status}</span></td>
-    <td class="text-sm">\${new Date(o.createdAt).toLocaleString('id-ID')}</td>
-  </tr>\`).join('');
+  tbody.innerHTML = d.orders.map(o => {
+    const gameId = o.gameServerId
+      ? \`\${esc(o.gameUserId)} <span style="color:#64748b;font-size:0.72rem">(Server: \${esc(o.gameServerId)})</span>\`
+      : esc(o.gameUserId);
+    const serverInfo = o.user.platform === 'DISCORD' && o.discordGuildId
+      ? \`<br><span style="color:#64748b;font-size:0.72rem">\${esc(o.guildName ?? o.discordGuildId)}</span>\`
+      : '';
+    return \`<tr>
+      <td style="font-family:monospace;font-size:0.78rem">\${esc(o.id.slice(0,8))}…</td>
+      <td><span class="badge \${PLATFORM_BADGE[o.user.platform] ?? 'badge-gray'}">\${o.user.platform}</span>\${serverInfo}</td>
+      <td class="text-sm">\${esc(o.user.username ?? o.user.platformUserId)}</td>
+      <td class="text-sm" style="font-family:monospace;font-size:0.8rem">\${gameId}</td>
+      <td class="text-sm">\${esc(o.itemName)}</td>
+      <td class="text-sm">Rp \${o.amount.toLocaleString('id-ID')}</td>
+      <td><span class="badge \${STATUS_BADGE[o.status] ?? 'badge-gray'}">\${o.status}</span></td>
+      <td class="text-sm">\${new Date(o.createdAt).toLocaleString('id-ID')}</td>
+    </tr>\`;
+  }).join('');
 
   const pagination = document.getElementById('orders-pagination');
   if (d.pages <= 1) { pagination.innerHTML = ''; return; }
