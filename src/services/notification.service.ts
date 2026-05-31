@@ -425,6 +425,64 @@ export async function notifyAdminLowBalance(balance: number): Promise<void> {
   ]);
 }
 
+// ─── Supplier Disruption Notifications ───────────────────────────────────────
+
+export async function notifyAdminSupplierDisruption(disrupted: { brand: string; itemName: string }[]): Promise<void> {
+  if (disrupted.length === 0) return;
+  const waktu = formatDateTime(new Date());
+
+  const listText = disrupted.map((p) => `• ${p.brand} — ${p.itemName}`).join("\n");
+  const listDiscord = disrupted.map((p) => `• **${p.brand}** — ${p.itemName}`).join("\n");
+
+  const telegramText =
+    `🔴 <b>GANGGUAN SUPPLIER TERDETEKSI</b>\n` +
+    `Produk (${disrupted.length}):\n${listText}\n\n` +
+    `Waktu    : ${waktu}\n` +
+    `Produk ini disembunyikan dari penjualan otomatis.`;
+
+  const discordEmbed = {
+    color: 0xef4444,
+    title: `🔴 Gangguan Supplier — ${disrupted.length} Produk`,
+    description: listDiscord,
+    fields: [{ name: "Waktu", value: waktu, inline: true }],
+    timestamp: new Date().toISOString(),
+    footer: { text: "YokMabar Admin — Produk disembunyikan otomatis" },
+  };
+
+  await Promise.allSettled([
+    sendTelegram(config.TELEGRAM_ADMIN_CHAT_ID, telegramText),
+    sendDiscordAdminEmbed(discordEmbed),
+  ]);
+}
+
+export async function notifyAdminSupplierRecovered(recovered: { brand: string; itemName: string }[]): Promise<void> {
+  if (recovered.length === 0) return;
+  const waktu = formatDateTime(new Date());
+
+  const listText = recovered.map((p) => `• ${p.brand} — ${p.itemName}`).join("\n");
+  const listDiscord = recovered.map((p) => `• **${p.brand}** — ${p.itemName}`).join("\n");
+
+  const telegramText =
+    `🟢 <b>GANGGUAN SUPPLIER SELESAI</b>\n` +
+    `Produk (${recovered.length}):\n${listText}\n\n` +
+    `Waktu    : ${waktu}\n` +
+    `Produk kembali tersedia di penjualan.`;
+
+  const discordEmbed = {
+    color: 0x34d399,
+    title: `🟢 Supplier Pulih — ${recovered.length} Produk`,
+    description: listDiscord,
+    fields: [{ name: "Waktu", value: waktu, inline: true }],
+    timestamp: new Date().toISOString(),
+    footer: { text: "YokMabar Admin — Produk kembali aktif" },
+  };
+
+  await Promise.allSettled([
+    sendTelegram(config.TELEGRAM_ADMIN_CHAT_ID, telegramText),
+    sendDiscordAdminEmbed(discordEmbed),
+  ]);
+}
+
 // ─── Feedback Notifications ───────────────────────────────────────────────────
 
 /**

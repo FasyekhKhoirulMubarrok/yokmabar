@@ -10,6 +10,10 @@ import {
   type SyncJobName,
 } from "./queue.js";
 import { config } from "../config.js";
+import {
+  notifyAdminSupplierDisruption,
+  notifyAdminSupplierRecovered,
+} from "../services/notification.service.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -107,14 +111,14 @@ async function upsertProducts(products: DigiflazzProduct[]): Promise<number> {
   const now = new Date();
   let count = 0;
 
-  // Batch upsert per 100 produk agar tidak timeout
   const BATCH_SIZE = 100;
   for (let i = 0; i < products.length; i += BATCH_SIZE) {
     const batch = products.slice(i, i + BATCH_SIZE);
 
     await db.$transaction(
-      batch.map((p) =>
-        db.product.upsert({
+      batch.map((p) => {
+        const disrupted = !p.seller_product_status;
+        return db.product.upsert({
           where: { itemCode: p.buyer_sku_code },
           create: {
             brand: p.brand,
@@ -125,6 +129,8 @@ async function upsertProducts(products: DigiflazzProduct[]): Promise<number> {
             price: applyMarkup(p.price),
             isActive: isActiveProduct(p),
             isPopular: isPopularBrand(p.brand),
+            isDisrupted: disrupted,
+            disruptedAt: disrupted ? now : null,
             lastSyncedAt: now,
           },
           update: {
@@ -133,16 +139,65 @@ async function upsertProducts(products: DigiflazzProduct[]): Promise<number> {
             price: applyMarkup(p.price),
             isActive: isActiveProduct(p),
             isPopular: isPopularBrand(p.brand),
+            isDisrupted: disrupted,
+            disruptedAt: disrupted ? now : null,
             lastSyncedAt: now,
           },
-        }),
-      ),
+        });
+      }),
     );
 
     count += batch.length;
   }
 
   return count;
+}
+
+// ─── Disruption Detection ─────────────────────────────────────────────────────
+
+async function detectAndNotifyDisruptions(
+  products: DigiflazzProduct[],
+  itemCodes: string[],
+): Promise<void> {
+  if (itemCodes.length === 0) return;
+
+  // Ambil state sebelum sync untuk produk yang akan diupdate
+  const before = await db.product.findMany({
+    where: { itemCode: { in: itemCodes } },
+    select: { itemCode: true, itemName: true, brand: true, isDisrupted: true },
+  });
+
+  const beforeMap = new Map(before.map((p) => [p.itemCode, p]));
+  const digiMap = new Map(products.map((p) => [p.buyer_sku_code, p]));
+
+  const newlyDisrupted: { brand: string; itemName: string }[] = [];
+  const newlyRecovered: { brand: string; itemName: string }[] = [];
+
+  for (const [itemCode, prev] of beforeMap) {
+    const digi = digiMap.get(itemCode);
+    if (digi === undefined) continue;
+
+    const wasDisrupted = prev.isDisrupted;
+    const nowDisrupted = !digi.seller_product_status;
+
+    if (!wasDisrupted && nowDisrupted) {
+      newlyDisrupted.push({ brand: prev.brand, itemName: prev.itemName });
+    } else if (wasDisrupted && !nowDisrupted) {
+      newlyRecovered.push({ brand: prev.brand, itemName: prev.itemName });
+    }
+  }
+
+  await Promise.allSettled([
+    notifyAdminSupplierDisruption(newlyDisrupted),
+    notifyAdminSupplierRecovered(newlyRecovered),
+  ]);
+
+  if (newlyDisrupted.length > 0) {
+    console.info(`[sync-worker] Gangguan supplier baru: ${newlyDisrupted.length} produk — ${newlyDisrupted.map((p) => p.brand).join(", ")}`);
+  }
+  if (newlyRecovered.length > 0) {
+    console.info(`[sync-worker] Supplier pulih: ${newlyRecovered.length} produk — ${newlyRecovered.map((p) => p.brand).join(", ")}`);
+  }
 }
 
 // ─── Invalidate Cache ─────────────────────────────────────────────────────────
@@ -163,6 +218,8 @@ async function runFullSync(): Promise<void> {
   console.info("[sync-worker] Full sync dimulai...");
   const all = await fetchPriceList();
   const games = all.filter((p) => isGameProduct(p) && !isInquiryProduct(p));
+  const itemCodes = games.map((p) => p.buyer_sku_code);
+  await detectAndNotifyDisruptions(games, itemCodes);
   const count = await upsertProducts(games);
   await invalidateProductCache();
   console.info(`[sync-worker] Full sync selesai — ${count} produk diproses.`);
@@ -172,6 +229,8 @@ async function runPartialSync(brands: string[]): Promise<void> {
   console.info(`[sync-worker] Partial sync dimulai — brands: ${brands.join(", ")}`);
   const all = await fetchPriceList();
   const filtered = all.filter((p) => isGameProduct(p) && !isInquiryProduct(p) && brands.includes(p.brand));
+  const itemCodes = filtered.map((p) => p.buyer_sku_code);
+  await detectAndNotifyDisruptions(filtered, itemCodes);
   const count = await upsertProducts(filtered);
   await invalidateProductCache(brands);
   console.info(`[sync-worker] Partial sync selesai — ${count} produk diproses.`);

@@ -23,22 +23,25 @@ model User {
 }
 
 model Product {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   brand        String
   category     String
-  itemCode     String   @unique
+  itemCode     String    @unique
   itemName     String
-  basePrice    Int      @default(0)
+  basePrice    Int       @default(0)
   price        Int
-  isActive     Boolean  @default(true)
-  isPopular    Boolean  @default(false)
-  displayOrder Int      @default(999)
-  lastSyncedAt DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean   @default(true)
+  isPopular    Boolean   @default(false)
+  isDisrupted  Boolean   @default(false)
+  disruptedAt  DateTime?
+  displayOrder Int       @default(999)
+  lastSyncedAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([brand])
   @@index([isActive, isPopular])
+  @@index([isDisrupted])
   @@index([category])
 }
 
