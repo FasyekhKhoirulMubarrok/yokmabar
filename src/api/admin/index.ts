@@ -5,7 +5,8 @@ import stats from "./stats.js";
 import events from "./events.js";
 import feedback from "./feedback.js";
 import products from "./products.js";
-import { loginPage, dashboardPage, eventsPage, feedbackPage, revenuePage, serversPage, reviewsPage } from "./pages.js";
+import manualTopup from "./manual-topup.js";
+import { loginPage, dashboardPage, eventsPage, feedbackPage, revenuePage, serversPage, reviewsPage, productsPage, manualTopupPage } from "./pages.js";
 
 const admin = new Hono();
 
@@ -27,6 +28,7 @@ admin.route("/api/admin", stats);
 admin.route("/api/admin/events", events);
 admin.route("/api/admin/feedback", feedback);
 admin.route("/api/admin/products", products);
+admin.route("/api/admin/manual-topup", manualTopup);
 
 // ─── HTML pages ───────────────────────────────────────────────────────────────
 
@@ -41,5 +43,7 @@ admin.get("/admin/events", (c) => c.html(eventsPage()));
 admin.get("/admin/feedback", (c) => c.html(feedbackPage()));
 admin.get("/admin/servers", (c) => c.html(serversPage()));
 admin.get("/admin/reviews", (c) => c.html(reviewsPage()));
+admin.get("/admin/products", (c) => c.html(productsPage()));
+admin.get("/admin/manual-topup", (c) => c.html(manualTopupPage()));
 
 export default admin;

@@ -14,7 +14,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "deploy:commands": "tsx src/bots/discord/deploy-commands.ts"
+    "deploy:commands": "tsx src/bots/discord/deploy-commands.ts",
+    "export:pricelist": "tsx scripts/export-pricelist.ts"
   },
   "dependencies": {
     "@grammyjs/conversations": "^2.1.1",
@@ -30,6 +31,7 @@
     "ioredis": "^5.4.2",
     "qrcode": "^1.5.4",
     "winston": "^3.17.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -43,7 +45,7 @@
     "prisma": "^6.2.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.7"
+    "vitest": "^3.0.7",
   },
   "engines": {
     "node": ">=20.0.0"

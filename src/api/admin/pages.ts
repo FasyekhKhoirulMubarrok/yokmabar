@@ -171,14 +171,16 @@ export function loginPage(error?: string): string {
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
-function nav(active: "dashboard" | "events" | "feedback" | "revenue" | "servers" | "reviews"): string {
+function nav(active: "dashboard" | "events" | "feedback" | "revenue" | "servers" | "reviews" | "products" | "manual-topup"): string {
   const links = [
     { href: "/admin", label: "Dashboard", key: "dashboard" },
     { href: "/admin/revenue", label: "Keuntungan", key: "revenue" },
+    { href: "/admin/products", label: "Produk", key: "products" },
     { href: "/admin/events", label: "Events", key: "events" },
     { href: "/admin/feedback", label: "Feedback", key: "feedback" },
     { href: "/admin/servers", label: "Server Discord", key: "servers" },
     { href: "/admin/reviews", label: "Reviews", key: "reviews" },
+    { href: "/admin/manual-topup", label: "🛠 Manual Top-Up", key: "manual-topup" },
   ];
   return `<nav class="nav">
   <span class="nav-brand">YokMabar Admin</span>
@@ -1255,3 +1257,361 @@ loadReviews(1);
   return layout("Reviews", body);
 }
 
+// ─── Products Page ────────────────────────────────────────────────────────────
+
+export function productsPage(): string {
+  const body = `
+${nav("products")}
+<div class="container">
+  <div class="section-header">
+    <h1>Daftar Harga Produk</h1>
+    <div class="flex gap-1" style="align-items:center">
+      <select id="brand-filter" onchange="loadProducts()" style="width:auto">
+        <option value="">Semua Brand</option>
+      </select>
+      <button class="btn btn-success" onclick="exportExcel()">Export Excel</button>
+    </div>
+  </div>
+
+  <div id="summary" class="flex gap-1" style="margin-bottom:1rem;font-size:0.875rem;color:#64748b"></div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Brand/Game</th>
+          <th>Kategori</th>
+          <th>Nama Produk</th>
+          <th>Kode SKU</th>
+          <th>Harga Modal</th>
+          <th>Harga Normal</th>
+          <th>Harga Event</th>
+          <th>Harga Coret</th>
+          <th>Diskon</th>
+          <th>Event</th>
+        </tr>
+      </thead>
+      <tbody id="products-body">
+        <tr><td colspan="11" class="text-sm" style="padding:1.5rem;text-align:center">Memuat…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const idr = n => 'Rp\\u00a0' + Number(n).toLocaleString('id-ID');
+
+async function loadBrands() {
+  const res = await apiFetch('/api/admin/products/brands');
+  if (!res) return;
+  const brands = await res.json();
+  const sel = document.getElementById('brand-filter');
+  brands.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b; opt.textContent = b;
+    sel.appendChild(opt);
+  });
+}
+
+async function loadProducts() {
+  const brand = document.getElementById('brand-filter').value;
+  const url = '/api/admin/products/list' + (brand ? '?brand=' + encodeURIComponent(brand) : '');
+  const res = await apiFetch(url);
+  if (!res) return;
+  const list = await res.json();
+
+  const tbody = document.getElementById('products-body');
+  const summary = document.getElementById('summary');
+
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-sm" style="padding:1.5rem;text-align:center">Tidak ada produk.</td></tr>';
+    summary.innerHTML = '';
+    return;
+  }
+
+  const withEvent = list.filter(p => p.eventName !== null).length;
+  summary.innerHTML = \`<span>\${list.length} produk</span>\` +
+    (withEvent > 0 ? \`<span style="color:#fbbf24">· \${withEvent} sedang event</span>\` : '');
+
+  tbody.innerHTML = list.map((p, i) => {
+    const hasEvent = p.eventName !== null;
+    const normalPrice = hasEvent
+      ? \`<span style="color:#94a3b8;text-decoration:line-through;font-size:0.8rem">\${idr(p.price)}</span>\`
+      : idr(p.price);
+    const eventPrice = hasEvent ? \`<span style="color:#34d399;font-weight:600">\${idr(p.eventActualPrice)}</span>\` : '<span style="color:#334155">—</span>';
+    const strikePrice = hasEvent ? \`<span style="color:#94a3b8">\${idr(p.eventStrikethroughPrice)}</span>\` : '<span style="color:#334155">—</span>';
+    const discount = hasEvent ? \`<span class="badge badge-yellow">-\${p.eventDiscountPercent}%</span>\` : '<span style="color:#334155">—</span>';
+    const eventLabel = hasEvent ? \`<span class="badge badge-blue">\${esc(p.eventName)}</span>\` : '<span style="color:#334155">—</span>';
+    return \`<tr>
+      <td style="color:#64748b">\${i + 1}</td>
+      <td style="font-size:0.8rem;font-weight:500">\${esc(p.brand)}</td>
+      <td style="font-size:0.78rem;color:#94a3b8">\${esc(p.category)}</td>
+      <td style="font-size:0.85rem">\${esc(p.itemName)}</td>
+      <td style="font-family:monospace;font-size:0.78rem;color:#94a3b8">\${esc(p.itemCode)}</td>
+      <td style="font-size:0.82rem;color:#64748b">\${idr(p.basePrice)}</td>
+      <td style="font-size:0.82rem">\${normalPrice}</td>
+      <td>\${eventPrice}</td>
+      <td>\${strikePrice}</td>
+      <td>\${discount}</td>
+      <td>\${eventLabel}</td>
+    </tr>\`;
+  }).join('');
+}
+
+function exportExcel() {
+  const brand = document.getElementById('brand-filter').value;
+  const url = '/api/admin/products/export' + (brand ? '?brand=' + encodeURIComponent(brand) : '');
+  window.location.href = url;
+}
+
+loadBrands();
+loadProducts();
+</script>`;
+  return layout("Produk", body);
+}
+
+// ─── Manual Top-Up Page ───────────────────────────────────────────────────────
+
+export function manualTopupPage(): string {
+  const body = `
+${nav("manual-topup")}
+<div class="container" style="max-width:780px">
+  <h1>🛠 Manual Top-Up</h1>
+  <div class="alert alert-error" style="margin-bottom:1.25rem">
+    ⚠️ Halaman ini mengirim permintaan <strong>langsung ke Digiflazz</strong>.
+    Pastikan order benar-benar sudah terbayar (PAID) atau gagal (FAILED) sebelum melanjutkan.
+    Setiap eksekusi dicatat di log server.
+  </div>
+
+  <!-- Step 1: Cari order -->
+  <div class="card" id="step-search">
+    <h2 style="margin-bottom:1rem">Step 1 — Cari Order</h2>
+    <div class="form-row" style="grid-template-columns:1fr auto;gap:0.75rem;margin-bottom:0">
+      <input id="search-input" type="text" placeholder="Order ID (partial) atau Payment Ref, contoh: YM-AB123"
+        onkeydown="if(event.key==='Enter') searchOrder()">
+      <button class="btn btn-primary" onclick="searchOrder()" id="btn-search">Cari</button>
+    </div>
+    <div id="search-results" style="margin-top:1rem"></div>
+  </div>
+
+  <!-- Step 2: Detail order (hidden until selected) -->
+  <div class="card mt-1" id="step-detail" style="display:none">
+    <h2 style="margin-bottom:1rem">Step 2 — Verifikasi Detail Order</h2>
+    <div id="order-detail-content"></div>
+    <div id="step-detail-action" style="margin-top:1.25rem;display:flex;gap:0.75rem;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="resetFlow()">Batal</button>
+      <button class="btn btn-danger" id="btn-prepare" onclick="prepareTopup()">Lanjut ke Konfirmasi →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Konfirmasi (hidden until token ready) -->
+  <div class="card mt-1" id="step-confirm" style="display:none;border:2px solid #7f1d1d">
+    <h2 style="margin-bottom:0.25rem;color:#f87171">Step 3 — Konfirmasi Akhir</h2>
+    <p class="text-sm" style="margin-bottom:1rem;color:#94a3b8">
+      Token konfirmasi berlaku <strong>2 menit</strong>. Setelah dikirim, tindakan tidak bisa dibatalkan.
+    </p>
+    <div id="confirm-summary" style="background:#0f1117;border-radius:8px;padding:1rem;margin-bottom:1rem;font-size:0.875rem;line-height:1.8"></div>
+    <label>Ketik <strong style="color:#f87171">KIRIM</strong> untuk konfirmasi</label>
+    <input id="confirm-word" type="text" placeholder="KIRIM" style="margin-bottom:1rem;letter-spacing:0.1em"
+      oninput="document.getElementById('btn-execute').disabled = this.value !== 'KIRIM'">
+    <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="resetFlow()">Batal</button>
+      <button class="btn btn-danger" id="btn-execute" onclick="executeTopup()" disabled>
+        Kirim ke Digiflazz
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 4: Result -->
+  <div class="card mt-1" id="step-result" style="display:none"></div>
+</div>
+
+<script>
+let selectedOrderId = null;
+let confirmToken = null;
+
+const STATUS_BADGE = {
+  SUCCESS: 'badge-green', FAILED: 'badge-red', EXPIRED: 'badge-red',
+  PENDING: 'badge-yellow', PAID: 'badge-yellow', PROCESSING: 'badge-blue',
+  CANCELLED: 'badge-gray',
+};
+const PLATFORM_BADGE = { TELEGRAM: 'badge-blue', DISCORD: 'badge-yellow', WHATSAPP: 'badge-green' };
+const idr = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+const fmtDate = d => new Date(d).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jakarta' }) + ' WIB';
+
+function showStep(id) {
+  ['step-search','step-detail','step-confirm','step-result'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = s === id || id === 'all' ? '' : 'none';
+  });
+}
+
+function resetFlow() {
+  selectedOrderId = null;
+  confirmToken = null;
+  document.getElementById('confirm-word').value = '';
+  document.getElementById('btn-execute').disabled = true;
+  document.getElementById('step-detail').style.display = 'none';
+  document.getElementById('step-confirm').style.display = 'none';
+  document.getElementById('step-result').style.display = 'none';
+}
+
+async function searchOrder() {
+  const q = document.getElementById('search-input').value.trim();
+  if (q.length < 3) { toast('Masukkan minimal 3 karakter', false); return; }
+
+  const btn = document.getElementById('btn-search');
+  btn.disabled = true; btn.textContent = 'Mencari…';
+  resetFlow();
+
+  const res = await apiFetch('/api/admin/manual-topup/lookup?q=' + encodeURIComponent(q));
+  btn.disabled = false; btn.textContent = 'Cari';
+  if (!res) return;
+
+  const orders = await res.json();
+  const container = document.getElementById('search-results');
+
+  if (!Array.isArray(orders) || orders.length === 0) {
+    container.innerHTML = '<p class="text-sm" style="padding:0.5rem">Tidak ada order yang ditemukan.</p>';
+    return;
+  }
+
+  container.innerHTML = orders.map(o => {
+    const retryable = o.status === 'PAID' || o.status === 'FAILED';
+    const statusBadge = '<span class="badge ' + (STATUS_BADGE[o.status] ?? 'badge-gray') + '">' + o.status + '</span>';
+    return \`<div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem;border:1px solid #2d3748;border-radius:8px;margin-bottom:0.5rem;background:#0f1117">
+      <div style="font-size:0.85rem;line-height:1.7">
+        <div><strong>#\${esc(o.paymentRef ?? o.id.slice(0,8))}</strong> &nbsp;\${statusBadge}</div>
+        <div style="color:#94a3b8">\${esc(o.itemName)} — \${idr(o.amount)}</div>
+        <div style="color:#64748b;font-size:0.78rem">Game ID: \${esc(o.gameUserId)}\${o.gameServerId ? ' / Server: '+esc(o.gameServerId) : ''} &nbsp;·&nbsp; \${fmtDate(o.createdAt)}</div>
+      </div>
+      \${retryable
+        ? \`<button class="btn btn-danger btn-sm" onclick="selectOrder('\${esc(o.id)}')">Pilih</button>\`
+        : \`<span class="text-sm" style="color:#475569">Tidak bisa diretry</span>\`
+      }
+    </div>\`;
+  }).join('');
+}
+
+async function selectOrder(orderId) {
+  selectedOrderId = orderId;
+
+  const res = await apiFetch('/api/admin/manual-topup/lookup?q=' + orderId.slice(0, 8));
+  if (!res) return;
+  const orders = await res.json();
+  const o = orders.find(x => x.id === orderId);
+  if (!o) { toast('Order tidak ditemukan', false); return; }
+
+  const customerNo = o.gameServerId ? o.gameUserId + o.gameServerId : o.gameUserId;
+  const platform = o.user?.platform ?? '—';
+
+  document.getElementById('order-detail-content').innerHTML = \`
+    <table style="font-size:0.875rem;width:100%">
+      <tr><td style="color:#64748b;padding:0.4rem 0;width:150px">Payment Ref</td><td><strong>#\${esc(o.paymentRef)}</strong></td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Order ID</td><td style="font-family:monospace;font-size:0.78rem">\${esc(o.id)}</td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Status</td><td><span class="badge \${STATUS_BADGE[o.status] ?? 'badge-gray'}">\${o.status}</span></td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Platform</td><td><span class="badge \${PLATFORM_BADGE[platform] ?? 'badge-gray'}">\${platform}</span></td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">User</td><td>\${esc(o.user?.username ?? o.user?.platformUserId ?? '—')}</td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Item</td><td><strong>\${esc(o.itemName)}</strong></td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">SKU Code</td><td style="font-family:monospace">\${esc(o.itemCode)}</td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Game</td><td>\${esc(o.game)}</td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Customer No</td><td style="font-family:monospace;font-size:1rem;color:#fbbf24"><strong>\${esc(customerNo)}</strong></td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Harga</td><td>\${idr(o.amount)}</td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Dibuat</td><td>\${fmtDate(o.createdAt)}</td></tr>
+      \${o.adminNote ? \`<tr><td style="color:#64748b;padding:0.4rem 0">Admin Note</td><td style="color:#f87171">\${esc(o.adminNote)}</td></tr>\` : ''}
+      \${o.supplierRef ? \`<tr><td style="color:#64748b;padding:0.4rem 0">Supplier Ref</td><td style="font-family:monospace;font-size:0.78rem">\${esc(o.supplierRef)}</td></tr>\` : ''}
+    </table>
+  \`;
+
+  document.getElementById('step-detail').style.display = '';
+  document.getElementById('step-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function prepareTopup() {
+  if (!selectedOrderId) return;
+
+  const btn = document.getElementById('btn-prepare');
+  btn.disabled = true; btn.textContent = 'Memvalidasi…';
+
+  const res = await apiFetch('/api/admin/manual-topup/prepare', {
+    method: 'POST',
+    body: JSON.stringify({ orderId: selectedOrderId }),
+  });
+
+  btn.disabled = false; btn.textContent = 'Lanjut ke Konfirmasi →';
+  if (!res) return;
+
+  const data = await res.json();
+  if (!res.ok) { toast(data.message ?? 'Gagal', false); return; }
+
+  confirmToken = data.token;
+
+  // Isi summary di step konfirmasi
+  const detailTable = document.getElementById('order-detail-content').innerHTML;
+  document.getElementById('confirm-summary').innerHTML =
+    '<div style="color:#fbbf24;margin-bottom:0.5rem;font-weight:600">⚠️ Periksa sekali lagi sebelum mengirim:</div>' +
+    detailTable;
+
+  document.getElementById('confirm-word').value = '';
+  document.getElementById('btn-execute').disabled = true;
+  document.getElementById('step-confirm').style.display = '';
+  document.getElementById('step-confirm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Auto-expire token di UI setelah 2 menit
+  setTimeout(() => {
+    if (confirmToken === data.token) {
+      confirmToken = null;
+      toast('Token konfirmasi kedaluwarsa. Ulangi dari awal.', false);
+      resetFlow();
+    }
+  }, data.expiresIn * 1000);
+}
+
+async function executeTopup() {
+  if (!selectedOrderId || !confirmToken) { toast('Token tidak valid', false); return; }
+  if (document.getElementById('confirm-word').value !== 'KIRIM') return;
+
+  const btn = document.getElementById('btn-execute');
+  btn.disabled = true; btn.textContent = 'Mengirim…';
+
+  const res = await apiFetch('/api/admin/manual-topup/execute', {
+    method: 'POST',
+    body: JSON.stringify({ orderId: selectedOrderId, token: confirmToken }),
+  });
+
+  confirmToken = null;
+  btn.textContent = 'Kirim ke Digiflazz';
+  if (!res) return;
+
+  const data = await res.json();
+  const resultEl = document.getElementById('step-result');
+
+  const isSuccess = data.status === 'Sukses';
+  const isPending = data.status === 'Pending';
+  const color = isSuccess ? '#34d399' : isPending ? '#fbbf24' : '#f87171';
+  const icon = isSuccess ? '✅' : isPending ? '⏳' : '❌';
+
+  resultEl.style.display = '';
+  resultEl.style.border = '2px solid ' + color;
+  resultEl.innerHTML = \`
+    <h2 style="color:\${color};margin-bottom:1rem">\${icon} Hasil: \${data.status}</h2>
+    <table style="font-size:0.875rem;width:100%">
+      <tr><td style="color:#64748b;padding:0.4rem 0;width:120px">Status</td><td style="color:\${color};font-weight:600">\${esc(data.status)}</td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">RC</td><td style="font-family:monospace">\${esc(data.rc)}</td></tr>
+      <tr><td style="color:#64748b;padding:0.4rem 0">Message</td><td>\${esc(data.message)}</td></tr>
+      \${data.sn ? \`<tr><td style="color:#64748b;padding:0.4rem 0">SN</td><td style="font-family:monospace;color:#34d399">\${esc(data.sn)}</td></tr>\` : ''}
+      <tr><td style="color:#64748b;padding:0.4rem 0">Ref ID</td><td style="font-family:monospace;font-size:0.78rem">\${esc(data.refId)}</td></tr>
+    </table>
+    \${isPending ? '<p class="text-sm" style="margin-top:0.75rem;color:#fbbf24">Tunggu webhook Digiflazz masuk — status order akan otomatis terupdate.</p>' : ''}
+    <div style="margin-top:1rem">
+      <button class="btn btn-ghost btn-sm" onclick="resetFlow();document.getElementById(\\'step-result\\').style.display=\\'none\\'">Selesai / Cari Order Lain</button>
+    </div>
+  \`;
+
+  document.getElementById('step-confirm').style.display = 'none';
+  resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>`;
+  return layout("Manual Top-Up", body);
+}
