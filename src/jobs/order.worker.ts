@@ -3,7 +3,7 @@ import { db } from "../db/client.js";
 import { connectionOptions, QUEUE_NAMES, type OrderJobData, type OrderJobName } from "./queue.js";
 import { topUp, SupplierError } from "../services/supplier.service.js";
 import { markAsProcessing, markAsSuccess, markAsFailed } from "../services/order.service.js";
-import { earnPoints } from "../services/point.service.js";
+import { earnPoints, getActivePoints } from "../services/point.service.js";
 import { invalidateBalanceCache } from "../services/balance.service.js";
 import {
   notifySuccess,
@@ -88,26 +88,35 @@ async function processOrder(job: Job<OrderJobData, void, OrderJobName>): Promise
   if (topUpResult.status === "Sukses") {
     const success = await markAsSuccess(orderId);
 
-    const [pointsResult] = await Promise.allSettled([
-      earnPoints(order.userId, orderId, order.amount),
-      invalidateBalanceCache(),
-    ]);
+    // PENTING: setelah markAsSuccess, notifikasi user TIDAK BOLEH hilang.
+    // Langkah poin/cache dibungkus agar errornya tidak mencegah notifySuccess.
+    // Jika dibiarkan throw, job retry — tapi order sudah SUCCESS sehingga guard
+    // di atas early-return tanpa notif → notifikasi hilang permanen.
+    let pointsEarned = 0;
+    let totalPoints = 0;
+    try {
+      const [pointsResult] = await Promise.allSettled([
+        earnPoints(order.userId, orderId, order.amount),
+        invalidateBalanceCache(),
+      ]);
+      pointsEarned = pointsResult.status === "fulfilled" ? pointsResult.value : 0;
+      totalPoints = await getActivePoints(order.userId);
+    } catch (err) {
+      console.error(`[order-worker] Gagal hitung poin order ${orderId}:`, err);
+    }
 
-    const pointsEarned =
-      pointsResult.status === "fulfilled" ? pointsResult.value : 0;
-
-    // Ambil total poin terbaru untuk ditampilkan di notif
-    const { getActivePoints } = await import("../services/point.service.js");
-    const totalPoints = await getActivePoints(order.userId);
-
-    await notifySuccess(
-      success,
-      order.user.platform,
-      order.user.platformUserId,
-      pointsEarned,
-      totalPoints,
-      topUpResult.sn,
-    );
+    try {
+      await notifySuccess(
+        success,
+        order.user.platform,
+        order.user.platformUserId,
+        pointsEarned,
+        totalPoints,
+        topUpResult.sn,
+      );
+    } catch (err) {
+      console.error(`[order-worker] notifySuccess gagal order ${orderId}:`, err);
+    }
 
     notifyReviewRequest(order.id, order.user.platform, order.user.platformUserId).catch(() => null);
 

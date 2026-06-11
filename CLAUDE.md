@@ -2,6 +2,10 @@
 
 > File ini dibaca otomatis oleh Claude Code di setiap sesi.
 > Selalu gunakan `use context7` saat butuh dokumentasi library terbaru.
+>
+> **Status:** Project sudah jadi & jalan (bukan lagi tahap "build dari nol").
+> Dokumen ini mencerminkan **kondisi kode yang sebenarnya** — pakai sebagai
+> peta arsitektur saat menambah fitur atau memperbaiki bug.
 
 ---
 
@@ -9,516 +13,183 @@
 
 - **Selalu gunakan Context7** untuk referensi dokumentasi library yang up-to-date
 - Jangan pernah menebak API — selalu fetch docs via Context7 sebelum generate kode
-- Semua kode wajib **TypeScript** — tidak ada plain JavaScript
-- Bangun per fase, test tiap fase sebelum lanjut ke fase berikutnya
+- Semua kode wajib **TypeScript strict** — tidak ada plain JavaScript, tidak ada `any`
+- Test perubahan dengan `npx tsc --noEmit` sebelum dianggap selesai
+- Ikuti pola kode yang sudah ada — naming, error handling, tone pesan bot
 
 ---
 
-## 🚀 Langkah-Langkah Prompt (36 Prompt — Dari Nol Sampai Production)
-
-> **Cara pakai:** Buka Claude Code di folder project, ketik prompt tanpa tanda petik.
-> Selesaikan satu prompt → test → baru lanjut ke prompt berikutnya.
-> Mulai sesi baru (`/rename`) untuk setiap fase baru.
-
----
-
-### FASE 1 — Fondasi
-*Sesi baru: `/rename yokmabar-fondasi`*
-
-```
-1. Buat struktur project lengkap dengan package.json, tsconfig.json,
-   .env.example, .gitignore, dan docker-compose.yml. use context7
-```
-✅ Test: `docker-compose up -d` → tidak ada error
-
-```
-2. Buat Prisma schema lengkap sesuai semua model di CLAUDE.md
-   dan generate migration awal. use context7
-```
-✅ Test: `npx prisma studio` → tabel tampil di browser
-
-```
-3. Buat src/config.ts untuk validasi semua env variables
-   menggunakan Zod. use context7
-```
-
-```
-4. Buat src/db/client.ts sebagai Prisma client singleton. use context7
-```
-
----
-
-### FASE 2 — Services (Business Logic)
-*Sesi baru: `/rename yokmabar-services`*
-
-```
-5. Buat src/services/product.service.ts untuk ambil produk
-   dari DB dengan Redis cache TTL 30 menit. use context7
-```
-
-```
-6. Buat src/services/order.service.ts dengan state machine
-   lengkap sesuai alur di CLAUDE.md. use context7
-```
-
-```
-7. Buat src/services/payment.service.ts untuk integrasi
-   Duitku — create invoice dan validasi webhook signature. use context7
-```
-
-```
-8. Buat src/services/supplier.service.ts untuk integrasi
-   Digiflazz — top up dengan HMAC MD5 signature dan
-   handle semua status response. use context7
-```
-
-```
-9. Buat src/services/point.service.ts dengan fungsi
-   earnPoints, getActivePoints, redeemPoints,
-   dan expirePoints sesuai aturan di CLAUDE.md. use context7
-```
-
-```
-10. Buat src/services/balance.service.ts untuk cek
-    saldo Digiflazz dengan HMAC MD5 signature. use context7
-```
-
-```
-11. Buat src/services/notification.service.ts untuk kirim
-    notif ke user dan admin di semua platform
-    sesuai template pesan YokMabar di CLAUDE.md. use context7
-```
-
-```
-12. Buat src/services/history.service.ts untuk ambil
-    5 transaksi terakhir user. use context7
-```
-✅ Test: `npx tsc --noEmit` → tidak ada TypeScript error
-
----
-
-### FASE 3 — Background Jobs
-*Sesi baru: `/rename yokmabar-jobs`*
-
-```
-13. Buat src/jobs/queue.ts dengan definisi semua
-    BullMQ queue. use context7
-```
-
-```
-14. Buat src/jobs/order.worker.ts untuk proses
-    top up ke Digiflazz. use context7
-```
-
-```
-15. Buat src/jobs/expire.worker.ts untuk expire
-    order otomatis setelah 15 menit. use context7
-```
-
-```
-16. Buat src/jobs/sync.worker.ts untuk sync harga
-    Digiflazz 3 layer sesuai CLAUDE.md — full sync
-    jam 3 pagi, partial sync setiap 6 jam, on-demand
-    dengan cooldown 15 menit. use context7
-```
-
-```
-17. Buat src/jobs/balance.worker.ts untuk cek saldo
-    Digiflazz setiap 1 jam dan notif admin
-    jika menipis. use context7
-```
-
----
-
-### FASE 4 — API & Webhook
-*Sesi baru: `/rename yokmabar-api`*
-
-```
-18. Buat src/api/health.ts untuk endpoint
-    GET /health. use context7
-```
-
-```
-19. Buat src/api/webhook.duitku.ts dengan validasi
-    signature dan idempotency check. use context7
-```
-
-```
-20. Buat src/api/webhook.digiflazz.ts dengan validasi
-    signature dan idempotency check. use context7
-```
-
-```
-21. Buat src/api/index.ts untuk register semua routes
-    Hono dengan middleware logger, cors,
-    dan rate limiter. use context7
-```
-✅ Test: `npm run dev` → `GET /health` return 200
-
----
-
-### FASE 5 — Bot Telegram
-*Sesi baru: `/rename yokmabar-telegram`*
-
-```
-22. Buat src/bots/telegram/scenes/topup.scene.ts
-    dengan Grammy Scenes — flow inline keyboard
-    lengkap sesuai UX di CLAUDE.md termasuk
-    fitur cari game dan penawaran poin. use context7
-```
-
-```
-23. Buat src/bots/telegram/commands.ts untuk command
-    /start, /topup, /riwayat, dan /poin
-    sesuai template pesan YokMabar di CLAUDE.md. use context7
-```
-
-```
-24. Buat src/bots/telegram/index.ts untuk setup
-    Grammy bot dan register semua command
-    dan scene. use context7
-```
-✅ Test: Jalankan bot, ketik /start di Telegram → pesan welcome muncul
-
----
-
-### FASE 6 — Bot Discord
-*Sesi baru: `/rename yokmabar-discord`*
-
-```
-25. Buat src/bots/discord/commands/topup.ts dengan
-    slash command /topup — autocomplete game dan
-    nominal, modal input User ID dan Server ID,
-    embed konfirmasi dengan buttons,
-    semua ephemeral. use context7
-```
-
-```
-26. Buat src/bots/discord/deploy-commands.ts untuk
-    register slash commands ke Discord API. use context7
-```
-
-```
-27. Buat src/bots/discord/index.ts untuk setup
-    discord.js client dan handle semua
-    interaction. use context7
-```
-✅ Test: `npx tsx src/bots/discord/deploy-commands.ts` → commands terdaftar
-✅ Test: Ketik /topup di Discord → autocomplete muncul
-
----
-
-### FASE 7 — Bot WhatsApp
-*Sesi baru: `/rename yokmabar-whatsapp`*
-
-```
-28. Buat src/bots/whatsapp/handler.ts untuk step-by-step
-    flow numbered menu lengkap sesuai UX di CLAUDE.md —
-    termasuk state management di Redis TTL 10 menit,
-    cari game, dan penawaran poin. use context7
-```
-
-```
-29. Buat src/bots/whatsapp/index.ts untuk setup
-    Fonnte webhook receiver dan routing
-    ke handler. use context7
-```
-✅ Test: Kirim pesan ke WA → numbered menu muncul
-
----
-
-### FASE 8 — Utils & Entrypoint
-*Sesi baru: `/rename yokmabar-entrypoint`*
-
-```
-30. Buat src/utils/logger.ts dengan Winston,
-    src/utils/signature.ts untuk validasi webhook,
-    dan src/utils/formatter.ts untuk format Rupiah
-    dan tanggal. use context7
-```
-
-```
-31. Buat src/index.ts sebagai entrypoint yang
-    start semua service — Hono API, ketiga bot,
-    dan semua BullMQ workers sekaligus. use context7
-```
-✅ Test: `npm run dev` → semua service nyala tanpa error
-
----
-
-### FASE 9 — Deployment
-*Sesi baru: `/rename yokmabar-deploy`*
-
-```
-32. Buat Dockerfile multi-stage untuk production
-    build yang optimal. use context7
-```
-
-```
-33. Buat konfigurasi Nginx sebagai reverse proxy
-    dengan SSL termination untuk VPS. use context7
-```
-
-```
-34. Buat script setup VPS — install Docker,
-    Docker Compose, Nginx, dan Certbot
-    untuk HTTPS. use context7
-```
-✅ Test: `docker-compose up -d` di VPS → semua container running
-
----
-
-### FASE 10 — Testing
-*Sesi baru: `/rename yokmabar-testing`*
-
-```
-35. Buat unit test untuk order.service.ts
-    dan point.service.ts menggunakan
-    Vitest. use context7
-```
-
-```
-36. Buat integration test untuk webhook
-    Duitku dan Digiflazz. use context7
-```
-✅ Test: `npm run test` → semua test pass
-
----
-
-### SETELAH SEMUA FASE SELESAI
-
-```
-Lakukan full review semua file yang sudah dibuat,
-pastikan konsisten dengan CLAUDE.md — naming, error handling,
-tone of voice pesan bot, dan konvensi coding. use context7
-```
-
----
-
-## 📦 Tech Stack
-
-### Backend API
-- **Runtime:** Node.js 20+ (LTS)
-- **Language:** TypeScript 5+
-- **Framework:** Hono
-- **HTTP Client:** fetch native Node.js 20 (bukan axios)
-- **Validasi:** Zod
-
-### Database
-- **Database:** PostgreSQL 16+
-- **ORM:** Prisma 5+
-- **Cache / Queue:** Redis + BullMQ
-- **Hosting DB:** Supabase (managed) atau PostgreSQL di VPS sendiri
+## 📦 Tech Stack (Aktual)
+
+### Backend / Runtime
+- **Runtime:** Node.js 20+ (LTS), ESM (`"type": ...` via `.js` import specifier)
+- **Language:** TypeScript 5.8 strict (`exactOptionalPropertyTypes` aktif)
+- **Framework HTTP:** Hono 4 (`@hono/node-server`)
+- **HTTP Client:** `fetch` native Node.js 20 — **tidak pakai axios**
+- **Validasi:** Zod 3
+
+### Database & Infra
+- **Database:** PostgreSQL 16
+- **ORM:** Prisma 6 (`@prisma/client`)
+- **Cache / Queue:** Redis 7 (`ioredis`) + BullMQ 5
+- **Container:** Docker + Docker Compose
+- **Reverse Proxy:** Nginx + Certbot (lihat `nginx/`)
 
 ### Bot Libraries
-- **Telegram:** Grammy v1+
-- **Discord:** discord.js v14+
-- **WhatsApp:** Fonnte API (REST HTTP — tidak perlu library khusus)
+- **Telegram:** Grammy v1 + **`@grammyjs/conversations`** (bukan Scenes lama) — long polling
+- **Discord:** discord.js v14 — slash command + autocomplete + modal + buttons
+- **WhatsApp:** Fonnte API (REST webhook, tanpa library khusus)
 
-### Payment Gateway
-- **Primary:** Duitku (QRIS, GoPay, OVO, Dana)
+### Payment & Supplier
+- **Payment Gateway:** **Midtrans** (QRIS via Core API `/v2/charge`) — bukan Duitku
+- **Supplier Top Up:** Digiflazz (HMAC MD5 signature)
 
-### Supplier Top Up
-- **Primary:** Digiflazz API
-
-### Infrastructure
-- **Container:** Docker + Docker Compose
-- **Hosting:** VPS (Niagahoster atau DigitalOcean)
-- **Reverse Proxy:** Nginx + Certbot (HTTPS wajib untuk webhook)
-- **Background Jobs:** BullMQ + Redis
-- **Process Manager:** Docker restart policy
-- **Monitoring:** Winston logger + notif Telegram ke admin
+### Lain-lain
+- **Admin auth:** `bcryptjs` (password hash) + JWT manual (HMAC, lihat `admin/auth.ts`)
+- **QR code:** `qrcode` (generate gambar QRIS dari string Midtrans)
+- **Export:** `xlsx` (export price list — `scripts/export-pricelist.ts`)
+- **Logger:** Winston
+- **Test:** Vitest
 
 ---
 
-## 📁 Struktur Folder
+## 📁 Struktur Folder (Aktual)
 
 ```
-topup-bot/
-├── CLAUDE.md                      ← file ini
-├── .env                           ← secrets (jangan di-commit!)
-├── .env.example                   ← template env
-├── docker-compose.yml
-├── Dockerfile
+yokmabar/
+├── CLAUDE.md                       ← file ini
+├── todo.md                         ← rencana fitur masa depan (event promo aktif, web topup)
+├── .env / .env.example
+├── docker-compose.yml              ← postgres + redis + app (profile: production)
+├── Dockerfile                      ← multi-stage, EXPOSE 4000, non-root user
 ├── package.json
 ├── tsconfig.json
+│
+├── nginx/
+│   ├── yokmabar.conf               ← reverse proxy + SSL
+│   └── DEPLOY.md                   ← catatan deployment VPS
+│
+├── public/images/                  ← logo untuk landing page
+├── scripts/
+│   └── export-pricelist.ts         ← export harga ke Excel
+│
 ├── prisma/
 │   ├── schema.prisma
-│   └── migrations/
+│   └── migrations/                 ← init → referral → feedback → event → cancelled → review → disruption
 │
 └── src/
-    ├── index.ts                   ← entrypoint
-    ├── config.ts                  ← env vars via Zod
+    ├── index.ts                    ← entrypoint: start API + bot Telegram/Discord + 5 worker
+    ├── config.ts                   ← env vars via Zod
     │
     ├── api/
-    │   ├── index.ts
-    │   ├── webhook.duitku.ts
-    │   ├── webhook.digiflazz.ts
-    │   └── health.ts
+    │   ├── index.ts                ← register routes, middleware (logger, cors, rate limit), static
+    │   ├── health.ts               ← GET /health
+    │   ├── webhook.midtrans.ts     ← webhook pembayaran (SHA512 signature + idempotency)
+    │   ├── webhook.digiflazz.ts    ← webhook supplier (MD5 signature + idempotency)
+    │   ├── oauth.discord.ts        ← OAuth Discord (link akun)
+    │   ├── landing.ts              ← landing page publik (branding/SEO)
+    │   └── admin/
+    │       ├── index.ts            ← mount semua route + HTML pages admin
+    │       ├── auth.ts             ← login/logout, JWT
+    │       ├── middleware.ts       ← guard API (JWT) & guard halaman
+    │       ├── stats.ts            ← dashboard stats + trigger sync
+    │       ├── events.ts           ← CRUD event pricing
+    │       ├── feedback.ts         ← kelola tiket feedback
+    │       ├── products.ts         ← kelola produk (popular, disrupt, dll)
+    │       ├── manual-topup.ts     ← top up manual oleh admin
+    │       └── pages.ts            ← semua HTML page (login, dashboard, revenue, events,
+    │                                  feedback, servers, reviews, products, manual-topup)
     │
     ├── bots/
     │   ├── telegram/
-    │   │   ├── index.ts
-    │   │   ├── commands.ts
+    │   │   ├── index.ts            ← setup Grammy + conversations + register handler
+    │   │   ├── commands.ts         ← /start /topup /riwayat /poin /feedback + review + cancel + admin reply
     │   │   └── scenes/
-    │   │       └── topup.scene.ts
+    │   │       ├── topup.scene.ts  ← conversation flow top up (BotContext didefinisikan di sini)
+    │   │       └── feedback.scene.ts
     │   ├── discord/
-    │   │   ├── index.ts
-    │   │   ├── commands/
-    │   │   │   └── topup.ts
-    │   │   └── deploy-commands.ts
+    │   │   ├── index.ts            ← setup client + handle interaction
+    │   │   ├── deploy-commands.ts  ← register slash command ke Discord API
+    │   │   └── commands/
+    │   │       ├── topup.ts        ← /topup (autocomplete + modal + buttons)
+    │   │       ├── referral.ts     ← /referral (server referral)
+    │   │       ├── feedback.ts     ← /feedback
+    │   │       ├── review.ts       ← review handler
+    │   │       └── help.ts         ← /help
     │   └── whatsapp/
-    │       ├── index.ts
-    │       └── handler.ts
+    │       ├── index.ts            ← Fonnte webhook receiver (router Hono)
+    │       └── handler.ts          ← numbered-menu state machine (state di Redis)
     │
     ├── services/
-    │   ├── order.service.ts
-    │   ├── payment.service.ts
-    │   ├── supplier.service.ts
-    │   ├── balance.service.ts
-    │   ├── product.service.ts
-    │   ├── point.service.ts
-    │   ├── notification.service.ts
-    │   └── history.service.ts
+    │   ├── order.service.ts        ← state machine order (+ CANCELLED)
+    │   ├── payment.service.ts      ← Midtrans: createInvoice (QRIS) + validateWebhook (SHA512)
+    │   ├── supplier.service.ts     ← Digiflazz: topUp, checkGameId (inquiry), validateWebhook (MD5)
+    │   ├── balance.service.ts      ← cek saldo Digiflazz (MD5 sign "depo")
+    │   ├── product.service.ts      ← produk dari DB + Redis cache TTL 30 menit + search
+    │   ├── point.service.ts        ← earn/getActive/redeem/expire + getPointSummary
+    │   ├── event.service.ts        ← event pricing (display vs actual markup, strikethrough)
+    │   ├── referral.service.ts     ← server referral Discord + bonus poin
+    │   ├── feedback.service.ts     ← tiket feedback + reply
+    │   ├── review.service.ts       ← rating bintang + post ke channel Discord
+    │   ├── notification.service.ts ← notif user & admin lintas platform
+    │   └── history.service.ts      ← 5 transaksi terakhir + formatter
     │
     ├── jobs/
-    │   ├── queue.ts
-    │   ├── order.worker.ts
-    │   ├── expire.worker.ts
-    │   ├── balance.worker.ts
-    │   └── sync.worker.ts
+    │   ├── queue.ts                ← definisi queue: order, expire, sync, balance + helper
+    │   ├── order.worker.ts         ← proses top up ke Digiflazz (retry 3x backoff)
+    │   ├── expire.worker.ts        ← expire order PENDING 15 menit (delayed job)
+    │   ├── sync.worker.ts          ← sync harga 3 layer + deteksi gangguan supplier
+    │   ├── balance.worker.ts       ← cek saldo Digiflazz tiap 1 jam
+    │   └── feedback.worker.ts      ← auto-close tiket feedback
     │
     ├── db/
-    │   └── client.ts
+    │   ├── client.ts               ← Prisma client singleton
+    │   └── redis.ts                ← ioredis singleton
     │
     └── utils/
-        ├── logger.ts
-        ├── signature.ts
-        └── formatter.ts
+        ├── logger.ts              ← Winston
+        ├── signature.ts           ← helper validasi webhook
+        └── formatter.ts           ← format Rupiah & tanggal
 ```
+
+> ⚠️ Import pakai ekstensi `.js` (ESM): `import { db } from "../db/client.js"`.
 
 ---
 
-## 🗄️ Prisma Schema
+## 🗄️ Prisma Schema (Aktual)
 
-```prisma
-generator client {
-  provider = "prisma-client-js"
-}
+Model: `User`, `Product`, `PriceEvent`, `Order`, `ServerReferral`, `Point`,
+`Feedback`, `FeedbackReply`, `Review`.
+Enum: `Platform`, `OrderStatus`, `PointType`, `FeedbackStatus`, `EventScope`.
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+Perubahan penting dari skema awal:
+- **`Product`** tambah `basePrice` (harga modal Digiflazz), `isDisrupted` + `disruptedAt`
+  (deteksi gangguan supplier). `price` = harga jual (sudah markup).
+- **`Order`** tambah `discordGuildId` (untuk atribusi referral server). `OrderStatus`
+  tambah **`CANCELLED`** (user batal sebelum bayar).
+- **`PriceEvent`** — event/promo harga: `displayMarkupRate` (harga coret) vs
+  `actualMarkupRate` (harga bayar), `scope` ALL/BRAND/ITEMS + `scopeValue`/`scopeItemCodes`,
+  `startAt`/`endAt`, `isActive`.
+- **`ServerReferral`** — atribusi server Discord ke inviter, untuk bonus poin.
+- **`Feedback` + `FeedbackReply`** — sistem tiket support dua arah.
+- **`Review`** — rating bintang per order, dipost ke channel Discord.
 
-model User {
-  id             String   @id @default(uuid())
-  platform       Platform
-  platformUserId String
-  username       String?
-  createdAt      DateTime @default(now())
-  orders         Order[]
-  points         Point[]
-
-  @@unique([platform, platformUserId])
-}
-
-model Product {
-  id           String   @id @default(uuid())
-  brand        String
-  category     String
-  itemCode     String   @unique
-  itemName     String
-  price        Int
-  isActive     Boolean  @default(true)
-  isPopular    Boolean  @default(false)
-  displayOrder Int      @default(999)
-  lastSyncedAt DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([brand])
-  @@index([isActive, isPopular])
-  @@index([category])
-}
-
-model Order {
-  id            String      @id @default(uuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id])
-  game          String
-  gameUserId    String
-  gameServerId  String?
-  itemCode      String
-  itemName      String
-  amount        Int
-  status        OrderStatus @default(PENDING)
-  paymentMethod String?
-  paymentUrl    String?
-  paymentRef    String?     @unique
-  supplierRef   String?     @unique
-  adminNote     String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  expiredAt     DateTime
-  point         Point?
-
-  @@index([userId])
-  @@index([status])
-  @@index([paymentRef])
-}
-
-model Point {
-  id          String    @id @default(uuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  orderId     String?   @unique
-  order       Order?    @relation(fields: [orderId], references: [id])
-  type        PointType
-  amount      Int
-  description String
-  expiredAt   DateTime
-  createdAt   DateTime  @default(now())
-
-  @@index([userId])
-  @@index([expiredAt])
-}
-
-enum Platform {
-  TELEGRAM
-  DISCORD
-  WHATSAPP
-}
-
-enum OrderStatus {
-  PENDING
-  PAID
-  PROCESSING
-  SUCCESS
-  FAILED
-  EXPIRED
-}
-
-enum PointType {
-  EARNED
-  REDEEMED
-  EXPIRED
-}
-```
+> Sumber kebenaran skema adalah `prisma/schema.prisma`. Selalu buat migration
+> (`npx prisma migrate dev --name ...`) saat mengubah skema.
 
 ---
 
-## ⚙️ Environment Variables
+## ⚙️ Environment Variables (Aktual — lihat `.env.example`)
 
 ```env
 # App
 NODE_ENV=development
-PORT=3000
+PORT=3000                  # docker-compose expose 4000 (lihat .env PORT di prod)
 APP_NAME=YokMabar
 APP_URL=https://yourdomain.com
 
 # Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/topup_db
+DATABASE_URL=postgresql://yokmabar:secret@localhost:5432/topup_db
 REDIS_URL=redis://localhost:6379
 
 # Bot Tokens
@@ -527,13 +198,13 @@ TELEGRAM_ADMIN_CHAT_ID=
 DISCORD_BOT_TOKEN=
 DISCORD_CLIENT_ID=
 DISCORD_ADMIN_CHANNEL_ID=
+DISCORD_REVIEW_CHANNEL_ID=      # channel publik untuk post review bintang
 FONNTE_API_KEY=
 WHATSAPP_ADMIN_NUMBER=
 
-# Payment — Duitku
-DUITKU_MERCHANT_CODE=
-DUITKU_API_KEY=
-DUITKU_CALLBACK_URL=https://yourdomain.com/webhook/duitku
+# Payment — Midtrans (QRIS)
+MIDTRANS_SERVER_KEY=
+MIDTRANS_WEBHOOK_URL=https://yourdomain.com/webhook/midtrans
 
 # Supplier — Digiflazz
 DIGIFLAZZ_USERNAME=
@@ -543,116 +214,206 @@ DIGIFLAZZ_MIN_BALANCE=50000
 
 # Sistem Poin
 POINT_EXPIRY_DAYS=90
-POINT_RATE=1000
-POINT_REDEEM_UNIT=200
-POINT_REDEEM_VALUE=1000
+POINT_RATE=2000                 # 1 poin per Rp 2.000 (Math.floor(amount/POINT_RATE))
+POINT_REDEEM_UNIT=200           # tukar kelipatan 200 poin
+POINT_REDEEM_VALUE=1000         # 200 poin = diskon Rp 1.000
+
+# Referral Discord
+REFERRAL_BONUS_POINTS=10
+
+# Markup Harga
+PRICE_MARKUP_RATE=0.05          # margin harga normal 5%
+PRICE_EVENT_RATE=0.03           # margin harga saat event 3%
+
+# Admin Web Panel
+# Generate hash: node -e "require('bcryptjs').hash('password',10).then(console.log)"
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD_HASH=
+ADMIN_JWT_SECRET=               # min 16 char
+
+# Development Only
+DISCORD_TEST_GUILD_ID=          # deploy slash command instan ke 1 guild (testing)
+
+# PostgreSQL (docker-compose)
+POSTGRES_USER=yokmabar
+POSTGRES_PASSWORD=secret
+POSTGRES_DB=topup_db
 ```
+
+> `config.ts` memvalidasi semua env dengan Zod dan `process.exit(1)` jika tidak valid.
 
 ---
 
-## 🔄 Alur Order (State Machine)
+## 🔄 Alur Order (State Machine — `order.service.ts`)
 
 ```
 PENDING → PAID → PROCESSING → SUCCESS
                             ↘ FAILED   ← notif admin otomatis
-PENDING → EXPIRED           (otomatis 15 menit via BullMQ)
+PENDING → EXPIRED           (otomatis 15 menit via BullMQ delayed job)
+PENDING → CANCELLED         (user tekan tombol batal sebelum bayar)
 ```
 
-- `PENDING → PAID` — webhook Duitku status `00`
-- `PAID → PROCESSING` — request dikirim ke Digiflazz
-- `PROCESSING → SUCCESS` — webhook Digiflazz status `Sukses`
-- `PROCESSING → FAILED` — webhook Digiflazz `Gagal` atau timeout 10 menit
-- `FAILED` — wajib kirim notif admin via Telegram + Discord
-- `PENDING → EXPIRED` — BullMQ delayed job 15 menit
+`VALID_TRANSITIONS`:
+- `PENDING → PAID | EXPIRED | CANCELLED`
+- `PAID → PROCESSING`
+- `PROCESSING → SUCCESS | FAILED`
+- `SUCCESS | FAILED | EXPIRED | CANCELLED` → terminal
+
+Pemicu transisi:
+- `PENDING → PAID` — webhook **Midtrans** status `settlement`/`capture` (status_code `200`)
+- `PAID → PROCESSING` — order worker kirim request ke Digiflazz (`markAsProcessing` + `supplierRef`)
+- `PROCESSING → SUCCESS` — Digiflazz `Sukses` (langsung saat topUp atau via webhook)
+- `PROCESSING → FAILED` — Digiflazz `Gagal` / timeout → **wajib notif admin** (Telegram + Discord)
+- `PENDING → EXPIRED` — BullMQ `expireQueue` delayed 15 menit (`scheduleOrderExpiry`)
+- `PENDING → CANCELLED` — `cancelOrder()` dari tombol batal
+
+> Kode order: `YM-XXXXX` (5 char random A-Z0-9), disimpan di `Order.paymentRef`.
 
 ---
 
-## 🔁 Strategi Sync Harga Digiflazz (3 Layer)
+## 💳 Payment — Midtrans (`payment.service.ts`)
 
-Jangan hit Digiflazz API langsung saat user request harga.
-Selalu: Redis cache → PostgreSQL → Digiflazz (via job terjadwal).
+- Core API `POST /v2/charge` dengan `payment_type: "qris"`.
+- Base URL otomatis: sandbox saat `NODE_ENV !== production`, production saat production.
+- Auth: `Basic base64(SERVER_KEY:)`.
+- `createInvoice` mengembalikan `paymentUrl`, `gatewayTransactionId`, dan **`qrBuffer`**
+  (gambar QR di-fetch dari `generate-qr-code` action).
+- **Validasi webhook:** `SHA512(order_id + status_code + gross_amount + SERVER_KEY)` == `signature_key`.
+  Sukses bila `status_code === "200"` && status `settlement`/`capture` && `fraud_status` accept/kosong.
 
-```
-Digiflazz API → BullMQ Job → PostgreSQL → Redis Cache (TTL 30 menit) → Bot
-```
+---
 
-- **Layer 1 — Full Sync:** Setiap hari jam 03.00 WIB — semua produk
-- **Layer 2 — Partial Sync:** Setiap 6 jam — game populer saja (ML, FF, PUBG, Genshin, Valorant)
-- **Layer 3 — On-Demand:** Manual admin via `/admin sync` atau `POST /admin/sync-prices` — cooldown 15 menit
+## 🏭 Supplier — Digiflazz (`supplier.service.ts`)
+
+Tiga signature MD5 berbeda:
+- **Transaksi:** `MD5(username + apiKey + ref_id)`
+- **Webhook:** `MD5(username + WEBHOOK_SECRET + ref_id)` — pakai secret, bukan apiKey
+- **Cek saldo:** `MD5(username + apiKey + "depo")`
+- **Price list:** `MD5(username + apiKey + "pricelist")` (di `sync.worker.ts`)
+
+- `topUp` kirim `ref_id` (= order id, idempotency key) + `testing` flag saat non-production.
+  Status `Sukses`/`Pending`/`Gagal`. `Gagal` → lempar `SupplierError` agar worker mark FAILED.
+- `checkGameId` — inquiry "Cek Username" untuk validasi User/Server ID sebelum bayar,
+  retry hingga 5x saat `Pending`. `customerNo = gameUserId + gameServerId` (jika ada server).
+- Webhook Digiflazz: validasi sign **hanya jika** field `sign` dikirim (opsional di dashboard),
+  selebihnya keamanan via lookup `ref_id`.
+
+---
+
+## 🔁 Sync Harga Digiflazz — 3 Layer (`sync.worker.ts`)
+
+Jangan hit Digiflazz API langsung saat user minta harga.
+Selalu: **Redis cache → PostgreSQL → Digiflazz (via job terjadwal)**.
+
+- **Layer 1 — Full Sync:** harian jam **03.00 WIB** (cron `0 20 * * *` UTC) — semua produk Games
+- **Layer 2 — Partial Sync:** tiap **6 jam** — brand populer (ML, FF, PUBG, Genshin, Valorant)
+- **Layer 3 — On-Demand:** admin via panel/command — **cooldown 15 menit** (Redis key)
+
+Saat sync:
+- Filter `category === "Games"`, buang produk "Cek Username".
+- `price = Math.ceil(basePrice * (1 + PRICE_MARKUP_RATE))`. `basePrice` = harga Digiflazz.
+- `isActive` dari `buyer_product_status && seller_product_status && stok`.
+- **Deteksi gangguan:** `isDisrupted = !seller_product_status`. Saat status berubah,
+  kirim notif admin (`notifyAdminSupplierDisruption` / `...Recovered`).
+- Invalidasi Redis cache produk setelah upsert.
+
+---
+
+## ⏰ Background Jobs (BullMQ — `jobs/`)
+
+Queue: `order`, `expire`, `sync`, `balance`. Worker yang di-start di `index.ts`:
+`orderWorker`, `expireWorker`, `syncWorker`, `balanceWorker`, `feedbackWorker`.
+
+- **order.worker** — proses PAID → top up Digiflazz, retry 3x exponential backoff
+- **expire.worker** — expire order PENDING 15 menit (`scheduleOrderExpiry` saat order dibuat;
+  `cancelOrderExpiry` saat dibayar)
+- **sync.worker** — full/partial/ondemand sync harga + deteksi gangguan
+- **balance.worker** — cek saldo Digiflazz tiap 1 jam, notif admin jika < `DIGIFLAZZ_MIN_BALANCE`
+- **feedback.worker** — auto-close tiket feedback yang sudah lama
+
+> `point.service.expirePoints()` ada untuk men-expire poin EARNED kedaluwarsa, namun
+> **belum di-wire ke schedule worker** — panggil manual / tambah schedule jika dibutuhkan.
+
+---
+
+## 🌐 API Routes (`api/index.ts`)
+
+Middleware global: Hono `logger`, `cors` (origin `APP_URL`), rate limiter Redis
+(60 req/menit/IP, hanya di `/health`), static `/images/*`.
+
+- `GET  /health`
+- `POST /webhook/midtrans`        ← pembayaran
+- `POST /webhook/digiflazz`       ← supplier
+- `*    /oauth/discord`           ← OAuth link akun Discord
+- `*    /webhook/whatsapp`        ← Fonnte receiver (di-mount di `index.ts`)
+- `GET  /`                        ← landing page
+- Admin panel (lihat di bawah)
+
+### Admin Web Panel (`api/admin/`)
+- API (JWT required): `POST /api/admin/login`, `/logout`, `GET /api/admin` (stats),
+  `POST /api/admin/sync`, `events`, `feedback`, `products`, `manual-topup`.
+- Halaman HTML (cookie/JWT guard): `/admin/login`, `/admin`, `/admin/revenue`,
+  `/admin/events`, `/admin/feedback`, `/admin/servers`, `/admin/reviews`,
+  `/admin/products`, `/admin/manual-topup`.
+
+---
+
+## 🎁 Sistem Poin (`point.service.ts`)
+
+- **Akumulasi:** `Math.floor(amount / POINT_RATE)` poin per order SUCCESS (`POINT_RATE=2000`).
+  Transaksi kecil < `POINT_RATE` → 0 poin.
+- **Penukaran:** kelipatan `POINT_REDEEM_UNIT` (200). Diskon = `(poin/200) * 1000`.
+  Pakai Redis lock + DB transaction (cegah double redeem & saldo minus).
+- **Expired:** 90 hari (`POINT_EXPIRY_DAYS`), **di-refresh** ke +90 hari tiap order SUCCESS baru.
+- **Earn idempotent:** satu order hanya bisa earn sekali (`Point.orderId @unique`).
+- **REDEEMED** disimpan amount negatif; `getActivePoints` hanya SUM EARNED aktif.
+- **Ditawarkan** otomatis saat checkout bila `canRedeem` (saldo ≥ 200); jika < 200 jangan ganggu flow.
+
+---
+
+## 🎉 Event Pricing / Promo (`event.service.ts`)
+
+- Dua markup: `actualMarkupRate` (yang user bayar) & `displayMarkupRate` (harga coret palsu).
+  `discountPercent` = `round((1 - actual/strikethrough) * 100)`.
+- Scope: `ALL` | `BRAND` (`scopeValue`) | `ITEMS` (`scopeItemCodes[]`).
+- Event aktif difilter via `getActiveEvent(brand, itemCode)` dengan window `startAt`/`endAt`.
+- Bersifat **pasif** (muncul saat user topup). Promo aktif/broadcast = rencana di `todo.md`.
+
+---
+
+## 🤝 Fitur Tambahan
+
+- **Server Referral (Discord)** — `referral.service.ts`, command `/referral`. Server di-link ke
+  inviter via `ServerReferral.guildId`; order dari guild itu (`Order.discordGuildId`) memberi
+  bonus `REFERRAL_BONUS_POINTS` ke inviter.
+- **Feedback / Tiket** — `/feedback` di semua platform → `Feedback` + `FeedbackReply`. Admin balas
+  via tombol di Telegram (`fb_reply`/`fb_close`) atau panel. Auto-close via `feedback.worker`.
+- **Review / Rating** — setelah SUCCESS user diminta rating bintang (+komentar opsional),
+  disimpan `Review` dan dipost ke `DISCORD_REVIEW_CHANNEL_ID`.
+- **Deteksi Gangguan Supplier** — produk `isDisrupted` disembunyikan dari menu, admin dinotif.
+- **Manual Top Up** — admin bisa top up manual lewat panel (`/admin/manual-topup`).
 
 ---
 
 ## 🎨 UX Per Platform
 
 ### Prinsip Global
-- Tampilkan 5 game terpopuler + opsi **"🔍 Cari game lain..."** sebagai pilihan bernomor explicit
+- Tampilkan 5 game terpopuler + opsi **"🔍 Cari game lain..."** bernomor explicit
 - User awam harus bisa selesai tanpa baca instruksi
+- Produk `isDisrupted`/non-aktif tidak ditampilkan
 
-### 📱 Telegram — Inline Keyboard
-Grammy `Scenes` + `InlineKeyboard`. Semua pilihan via tombol tap.
-```
-/topup → [ML][FF][PUBG][Genshin][Valorant][🔍 Cari]
-→ tap game → [nominal buttons]
-→ tap nominal → input User ID
-→ konfirmasi [✅ Konfirmasi][❌ Batal]
-→ [💰 Pakai poin?] jika saldo ≥ 200
-→ [💳 QRIS][💚 GoPay][💜 OVO][💙 Dana]
-→ link pembayaran
-```
+### 📱 Telegram — Grammy Conversations + Inline Keyboard
+`@grammyjs/conversations` (`topUpScene`, `feedbackScene`). `BotContext` didefinisikan di
+`scenes/topup.scene.ts`. Menu utama: [🎮 Top Up][📋 Riwayat][🎁 Poin Saya].
+Command: `/start /topup /riwayat /poin /feedback`.
 
-### 💬 WhatsApp — Numbered Menu
-Menu bernomor explicit, instruksi diulang di akhir setiap pesan.
-State di Redis key `wa:state:{phone}` TTL 10 menit.
-Jika state expired → mulai ulang dengan ramah.
-```
-User kirim pesan apapun → numbered menu muncul
-→ balas angka → pilihan selanjutnya
-→ input User ID → konfirmasi
-→ tawaran poin jika ≥ 200
-→ pilih metode bayar → link pembayaran
-```
+### 💬 WhatsApp — Numbered Menu (`whatsapp/handler.ts`)
+Menu bernomor explicit, state di Redis `wa:state:{phone}` TTL 10 menit.
+State expired → mulai ulang dengan ramah.
 
-### 🎮 Discord — Slash Command + Autocomplete
-discord.js slash command `/topup` dengan autocomplete game + nominal.
-Modal untuk input User ID dan Server ID.
-Semua reply `ephemeral: true`.
-```
-/topup game:[autocomplete] nominal:[autocomplete]
-→ modal User ID + Server ID
-→ embed konfirmasi + buttons metode bayar
-→ link pembayaran (ephemeral)
-```
-
----
-
-## 🎁 Sistem Poin
-
-- **Akumulasi:** `Math.floor(amount / 1000)` poin per transaksi SUCCESS
-- **Penukaran:** 200 poin = diskon Rp 1.000 (kelipatan 200)
-- **Biaya:** ~0.5% dari transaksi — aman dari margin ~8%
-- **Expired:** 90 hari sejak transaksi terakhir (di-refresh tiap transaksi baru)
-- **Ditawarkan:** otomatis saat checkout jika saldo ≥ 200 poin
-- **Tidak ditawarkan:** jika saldo < 200 — jangan ganggu flow
-
-```typescript
-earnPoints(userId, orderId, amount):
-  poin = Math.floor(amount / 1000)
-  buat Point { type: EARNED, amount: poin, expiredAt: now() + 90 hari }
-  refresh expiredAt semua poin aktif user → now() + 90 hari
-
-getActivePoints(userId):
-  SUM(amount) WHERE userId AND expiredAt > now()
-
-redeemPoints(userId, pointsToRedeem):
-  validasi: pointsToRedeem % 200 === 0
-  validasi: saldo aktif >= pointsToRedeem
-  diskon = (pointsToRedeem / 200) * 1000
-  buat Point { type: REDEEMED, amount: -pointsToRedeem }
-  return diskon
-
-expirePoints(): // BullMQ job jam 02.00 WIB
-  update EXPIRED WHERE expiredAt < now() AND type = EARNED
-```
+### 🎮 Discord — Slash Command + Autocomplete (`discord/commands/`)
+`/topup` autocomplete game+nominal, modal User/Server ID, embed konfirmasi + buttons,
+semua `ephemeral: true`. Command lain: `/referral`, `/feedback`, `/help`, review.
 
 ---
 
@@ -660,12 +421,9 @@ expirePoints(): // BullMQ job jam 02.00 WIB
 
 - **Nama bot:** YokMabar Bot (semua platform)
 - **Tagline:** *Top up cepat, langsung gas — tanpa buka web!*
-- **Tone:** Campuran — santai & akrab, tapi tetap sopan
-- Gunakan "kamu", bukan "lo" atau "anda"
-- Boleh: "gas", "yok", "mantap", "siap"
-- Emoji max 2–3 per pesan
-- Format rupiah: `Rp 19.000` (spasi + titik ribuan)
-- Kode order: `#YM-XXXXX`
+- **Tone:** santai & akrab tapi sopan. Pakai "kamu" (bukan "lo"/"anda").
+- Boleh: "gas", "yok", "mantap", "siap" · Emoji max 2–3 per pesan
+- Format rupiah: `Rp 19.000` (spasi + titik ribuan) · Kode order: `#YM-XXXXX`
 
 ### Template Pesan Utama
 
@@ -680,22 +438,11 @@ Yok, mulai top up sekarang! 👇
 🎮 Halo lagi! Siap mabar hari ini?
 Yok lanjut top up — cepet, aman, langsung gas! 👇
 
-Tagihan:
-💳 Tagihan YokMabar
-Nominal  : Rp 37.500
-Order    : #YM-12345
-Berlaku  : 15 menit ⏰
-Selesaikan pembayaran sebelum waktu habis ya!
-
 Sukses:
 🎉 Top up berhasil!
 {item} sudah masuk ke akun kamu.
 Cek in-game sekarang dan langsung gas! 🚀
 +{n} poin diterima · Total: {total} poin
-
-Error:
-😅 Ups, ada gangguan sebentar.
-Coba lagi dalam beberapa menit ya!
 
 Gagal supplier:
 😔 Top up kamu belum berhasil diproses.
@@ -711,25 +458,8 @@ Fallback:
 😊 Halo! Ketik /start atau /topup untuk mulai top up ya.
 ```
 
----
-
-## 🧑‍💻 Konvensi Coding
-
-- **TypeScript strict** — tidak ada `any`
-- Semua I/O wajib `async/await`
-- `fetch` native Node.js 20 — tidak pakai axios
-- Format: **Prettier** + **ESLint** TypeScript strict
-- File: `kebab-case.ts` | Class: `PascalCase` | Fungsi: `camelCase`
-- Konstanta: `UPPER_SNAKE_CASE` | Enum: `UPPER_SNAKE_CASE`
-- Custom error: `PaymentError`, `SupplierError`, `OrderError`
-- Validasi signature webhook sebelum proses apapun
-- Idempotency check `paymentRef` sebelum proses webhook
-- Jangan log API key, token, atau data sensitif
-
----
-
-## 🔔 Notif Admin — Order Gagal
-
+### Notif Admin — Order Gagal
+Kirim ke `TELEGRAM_ADMIN_CHAT_ID` + embed merah `DISCORD_ADMIN_CHANNEL_ID` + Winston error log.
 ```
 🚨 ORDER GAGAL
 Order ID : #YM-xxxxx
@@ -738,9 +468,24 @@ Item     : 86 Diamonds
 User     : @username (Telegram)
 Game ID  : 123456789
 Error    : [pesan dari Digiflazz]
-Waktu    : 23 Mar 2026 14:32 WIB
+Waktu    : ... WIB
 ```
-Kirim ke: `TELEGRAM_ADMIN_CHAT_ID` + embed merah `DISCORD_ADMIN_CHANNEL_ID` + Winston error log
+
+---
+
+## 🧑‍💻 Konvensi Coding
+
+- **TypeScript strict** — tidak ada `any`; `exactOptionalPropertyTypes` aktif
+  (gunakan `?? null` / kondisional saat assign optional)
+- Semua I/O wajib `async/await`; `fetch` native (tanpa axios)
+- Import ESM dengan ekstensi `.js`
+- File: `kebab-case.ts` | Class: `PascalCase` | Fungsi: `camelCase`
+  | Konstanta: `UPPER_SNAKE_CASE` | Enum value: `UPPER_SNAKE_CASE`
+- Custom error per domain: `PaymentError`, `SupplierError`, `OrderError`, `PointError` (punya `code`)
+- **Validasi signature webhook** sebelum proses apapun (Midtrans SHA512, Digiflazz MD5)
+- **Idempotency check** via `paymentRef`/`supplierRef` (`@unique`) sebelum proses webhook
+- Jangan log API key, token, atau data sensitif
+- Format: Prettier + ESLint TypeScript strict
 
 ---
 
@@ -748,63 +493,57 @@ Kirim ke: `TELEGRAM_ADMIN_CHAT_ID` + embed merah `DISCORD_ADMIN_CHANNEL_ID` + Wi
 
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env            # isi semua secret
 docker-compose up -d postgres redis
-npx prisma migrate dev --name init
+npx prisma migrate dev          # atau: npx prisma migrate deploy
 npx prisma generate
-npx tsx src/bots/discord/deploy-commands.ts
-npm run dev
+npm run deploy:commands         # register slash command Discord
+npm run dev                     # tsx watch src/index.ts
+```
+
+Perintah berguna:
+- `npm run dev` · `npm run build` · `npm start`
+- `npm run lint` · `npm run format` · `npm run test`
+- `npm run prisma:studio` — buka Prisma Studio
+- `npm run export:pricelist` — export harga ke Excel
+- `npx tsc --noEmit` — cek TypeScript tanpa build
+
+---
+
+## 🚀 Deployment (VPS)
+
+- `Dockerfile` multi-stage (base → build-deps → build → deps → production), non-root user,
+  `EXPOSE 4000`, healthcheck via `fetch`.
+- `docker-compose.yml`: postgres + redis (selalu), `app` di profile `production`.
+  Port app bind ke `127.0.0.1:${PORT:-4000}` (di belakang Nginx).
+- `nginx/yokmabar.conf` + `nginx/DEPLOY.md` — reverse proxy + SSL (Certbot).
+- HTTPS wajib untuk webhook (Midtrans, Digiflazz, Fonnte).
+
+```bash
+docker-compose --profile production up -d --build
 ```
 
 ---
 
 ## ✅ Checklist Sebelum Production
 
-### Server
-- [ ] VPS: Docker + Docker Compose terinstall
-- [ ] Domain pointing ke IP VPS
-- [ ] Nginx + Certbot aktif — HTTPS berjalan
-- [ ] Firewall: hanya port 80, 443, 22 terbuka
+- [ ] Semua env diisi; `APP_URL` HTTPS
+- [ ] Webhook Midtrans & Digiflazz terdaftar ke `APP_URL/webhook/...`
+- [ ] Discord slash command di-deploy (`npm run deploy:commands`)
+- [ ] Validasi signature Midtrans (SHA512) & Digiflazz (MD5) aktif
+- [ ] Idempotency check aktif; rate limiting aktif; state WA TTL aktif
+- [ ] `.env` tidak ter-commit; admin panel `ADMIN_PASSWORD_HASH` + `ADMIN_JWT_SECRET` diisi
+- [ ] Nginx + Certbot aktif; firewall hanya 80/443/22
+- [ ] Switch Midtrans & Digiflazz ke production; monitor log 30 menit pertama
 
-### Config
-- [ ] Semua env variable diisi
-- [ ] APP_URL pakai HTTPS
-- [ ] Webhook URL Duitku terdaftar
-- [ ] Webhook URL Digiflazz terdaftar
-- [ ] Discord slash commands di-deploy
-
-### Keamanan
-- [ ] Validasi signature Duitku aktif
-- [ ] Validasi signature Digiflazz aktif
-- [ ] Idempotency check aktif
-- [ ] Rate limiting aktif
-- [ ] State WA Redis TTL aktif
-- [ ] .env tidak ter-commit ke Git
-
-### Testing Bot
-- [ ] Telegram: /start → flow lengkap → sukses
-- [ ] WhatsApp: menu → flow lengkap → sukses
-- [ ] Discord: /topup → autocomplete → modal → sukses
-- [ ] Cari game "🔍 Cari game lain" di Telegram & WA
-- [ ] Transaksi sandbox Duitku end-to-end
-- [ ] Top up sandbox Digiflazz
-- [ ] Notif admin saat FAILED
-- [ ] Notif saldo Digiflazz menipis
-- [ ] /riwayat di ketiga bot
-- [ ] Order expired otomatis 15 menit
-- [ ] Sync harga on-demand + cooldown
-
-### Testing Poin
-- [ ] Poin bertambah setelah SUCCESS
-- [ ] Poin tidak bertambah jika FAILED/EXPIRED
-- [ ] Tawaran poin muncul saat saldo ≥ 200
-- [ ] Tawaran poin tidak muncul saat saldo < 200
-- [ ] Tukar poin kelipatan 200 — harga terpotong benar
-- [ ] Saldo poin tidak bisa minus
-- [ ] expiredAt di-refresh saat transaksi baru
-- [ ] BullMQ expire poin harian berjalan
-
-### Go Live
-- [ ] Switch Duitku ke production
-- [ ] Switch Digiflazz ke production
-- [ ] Monitor log 30 menit pertama setelah launch
+### Testing fungsional
+- [ ] Telegram/WhatsApp/Discord: flow top up lengkap → sukses
+- [ ] "🔍 Cari game lain" di Telegram & WA
+- [ ] Transaksi sandbox Midtrans + top up sandbox Digiflazz end-to-end
+- [ ] Notif admin saat FAILED; notif saldo menipis; notif gangguan supplier
+- [ ] Order expired otomatis 15 menit; order cancel sebelum bayar
+- [ ] Sync harga on-demand + cooldown 15 menit
+- [ ] Poin bertambah saat SUCCESS (tidak saat FAILED/EXPIRED); tukar poin kelipatan 200
+- [ ] Tawaran poin muncul ≥ 200, tidak muncul < 200; saldo tak bisa minus
+- [ ] Event pricing tampil harga coret + diskon; referral bonus; feedback & review jalan
+```

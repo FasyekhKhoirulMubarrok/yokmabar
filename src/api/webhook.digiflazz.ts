@@ -80,23 +80,36 @@ webhookDigiflazz.post("/", async (c) => {
     // PROCESSING → SUCCESS
     const success = await markAsSuccess(order.id);
 
-    const [pointsResult] = await Promise.allSettled([
-      earnPoints(order.userId, order.id, order.amount),
-      invalidateBalanceCache(),
-    ]);
+    // PENTING: setelah markAsSuccess, notifikasi user TIDAK BOLEH hilang.
+    // Langkah sekunder (poin/cache) dibungkus agar errornya tidak pernah
+    // mencegah notifySuccess. Jika notifySuccess sampai throw, kita tetap
+    // balas 200 supaya Digiflazz tidak retry — karena retry akan ke-skip oleh
+    // guard status (order sudah SUCCESS) dan notifikasi hilang permanen.
+    let pointsEarned = 0;
+    let totalPoints = 0;
+    try {
+      const [pointsResult] = await Promise.allSettled([
+        earnPoints(order.userId, order.id, order.amount),
+        invalidateBalanceCache(),
+      ]);
+      pointsEarned = pointsResult.status === "fulfilled" ? pointsResult.value : 0;
+      totalPoints = await getActivePoints(order.userId);
+    } catch (err) {
+      console.error(`[webhook-digiflazz] Gagal hitung poin order ${order.id}:`, err);
+    }
 
-    const pointsEarned =
-      pointsResult.status === "fulfilled" ? pointsResult.value : 0;
-    const totalPoints = await getActivePoints(order.userId);
-
-    await notifySuccess(
-      success,
-      user.platform,
-      user.platformUserId,
-      pointsEarned,
-      totalPoints,
-      data.sn,
-    );
+    try {
+      await notifySuccess(
+        success,
+        user.platform,
+        user.platformUserId,
+        pointsEarned,
+        totalPoints,
+        data.sn,
+      );
+    } catch (err) {
+      console.error(`[webhook-digiflazz] notifySuccess gagal order ${order.id}:`, err);
+    }
 
     notifyReviewRequest(success.id, user.platform, user.platformUserId).catch(() => null);
 

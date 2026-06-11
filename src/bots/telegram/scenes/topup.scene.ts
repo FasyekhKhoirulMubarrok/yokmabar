@@ -572,18 +572,27 @@ export async function topUpScene(
 
   const cancelKeyboard = new InlineKeyboard().text("❌ Batalkan Order", `cancel_order:${order.id}`);
 
+  let qrMessage;
   if (invoice.qrBuffer !== undefined) {
-    await ctx.replyWithPhoto(new InputFile(invoice.qrBuffer, "qris.png"), {
+    qrMessage = await ctx.replyWithPhoto(new InputFile(invoice.qrBuffer, "qris.png"), {
       caption,
       parse_mode: "HTML",
       reply_markup: cancelKeyboard,
     });
   } else {
-    await ctx.reply(`${caption}\n${invoice.paymentUrl}`, {
+    qrMessage = await ctx.reply(`${caption}\n${invoice.paymentUrl}`, {
       parse_mode: "HTML",
       reply_markup: cancelKeyboard,
     });
   }
+
+  // Simpan message_id pesan QR agar webhook/worker bisa MENG-UPDATE pesan ini
+  // menjadi notif sukses/gagal/expired (setara mekanisme discord:qr:* di Discord).
+  // TTL 20 menit — sedikit lebih panjang dari masa berlaku order (15 menit) agar
+  // notif EXPIRED (yang fire tepat di menit ke-15) masih bisa mengedit pesan ini.
+  await conversation.external(() =>
+    redis.set(`tg:qr:${order.id}`, String(qrMessage.message_id), "EX", 20 * 60),
+  );
 
   await clearMarker();
 }

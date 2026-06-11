@@ -3,7 +3,8 @@ import { randomBytes } from "crypto";
 import { db } from "../../db/client.js";
 import { redis } from "../../db/redis.js";
 import { topUp } from "../../services/supplier.service.js";
-import { earnPoints } from "../../services/point.service.js";
+import { earnPoints, getActivePoints } from "../../services/point.service.js";
+import { notifySuccess } from "../../services/notification.service.js";
 import { logger } from "../../utils/logger.js";
 
 const manualTopup = new Hono();
@@ -179,16 +180,35 @@ manualTopup.post("/execute", async (c) => {
 
   // Update status berdasarkan hasil
   if (digiResult?.status === "Sukses") {
-    await db.order.update({
+    const success = await db.order.update({
       where: { id: orderId },
       data: { status: "SUCCESS" },
     });
 
     // Earn points jika belum punya (idempotent via Point.orderId unique)
+    let pointsEarned = 0;
     try {
-      await earnPoints(order.userId, orderId, order.amount);
+      pointsEarned = await earnPoints(order.userId, orderId, order.amount);
     } catch {
       // Tidak gagalkan proses jika poin sudah ada
+    }
+
+    // Notifikasi user — manual top-up juga harus mengabari user & meng-update QR.
+    try {
+      const user = await db.user.findUnique({ where: { id: order.userId } });
+      if (user !== null) {
+        const totalPoints = await getActivePoints(order.userId).catch(() => 0);
+        await notifySuccess(
+          success,
+          user.platform,
+          user.platformUserId,
+          pointsEarned,
+          totalPoints,
+          digiResult.sn,
+        );
+      }
+    } catch (err) {
+      logger.error("[manual-topup] notifySuccess gagal", { orderId, refId, error: err instanceof Error ? err.message : String(err) });
     }
 
     logger.info("[manual-topup] SUCCESS", { orderId, refId, sn: digiResult.sn });

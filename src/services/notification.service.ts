@@ -1,14 +1,14 @@
 import { Api } from "grammy";
-import { REST, Routes } from "discord.js";
+import { type REST, Routes } from "discord.js";
 import { type Platform, type Order } from "@prisma/client";
 import { config } from "../config.js";
 import { stripBrandPrefix } from "../utils/formatter.js";
 import { redis } from "../db/redis.js";
+import { discordClient } from "../bots/discord/index.js";
 
-// ─── Clients (lazy-initialized) ───────────────────────────────────────────────
+// ─── Clients ──────────────────────────────────────────────────────────────────
 
 let _telegramApi: Api | null = null;
-let _discordRest: REST | null = null;
 
 function getTelegramApi(): Api {
   if (_telegramApi === null) {
@@ -17,13 +17,18 @@ function getTelegramApi(): Api {
   return _telegramApi;
 }
 
+/**
+ * Pakai ulang REST milik bot client yang SUDAH terautentikasi via client.login().
+ *
+ * Sebelumnya kita membuat `new REST().setToken(...)` terpisah — di production
+ * instance itu bisa kehilangan token dan melempar
+ * "Expected token to be set for this request, but none was present",
+ * sehingga SEMUA notifikasi Discord (DM sukses + edit QR) gagal diam-diam.
+ * `discordClient.rest` dijamin punya token karena bot berhasil login & meng-handle
+ * interaction (order Discord hanya bisa terbentuk kalau bot terkoneksi).
+ */
 function getDiscordRest(): REST {
-  if (_discordRest === null) {
-    _discordRest = new REST({ version: "10" }).setToken(
-      config.DISCORD_BOT_TOKEN,
-    );
-  }
-  return _discordRest;
+  return discordClient.rest;
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -127,6 +132,55 @@ async function tryEditDiscordQrMessage(orderId: string, content: string): Promis
   }
 }
 
+// ─── Telegram QR Message Edit ─────────────────────────────────────────────────
+
+/**
+ * Edit pesan QR (foto/teks) di Telegram saat order selesai/gagal/expired.
+ * message_id disimpan di Redis (`tg:qr:{orderId}`) saat QR dikirim — TTL 15 menit.
+ * Return true jika berhasil mengedit (caller bisa skip pengiriman pesan baru).
+ *
+ * chatId = platformUserId untuk private chat Telegram.
+ */
+async function tryEditTelegramQrMessage(
+  chatId: string,
+  orderId: string,
+  caption: string,
+): Promise<boolean> {
+  const stored = await redis.get(`tg:qr:${orderId}`);
+  if (stored === null) return false;
+
+  const messageId = Number(stored);
+  if (!Number.isFinite(messageId)) return false;
+
+  const api = getTelegramApi();
+  const emptyMarkup = { inline_keyboard: [] };
+
+  try {
+    // QR umumnya dikirim sebagai foto → edit caption-nya.
+    await api.editMessageCaption(chatId, messageId, {
+      caption,
+      parse_mode: "HTML",
+      reply_markup: emptyMarkup,
+    });
+  } catch {
+    try {
+      // Fallback: QR dikirim sebagai teks (tanpa qrBuffer) → edit text.
+      await api.editMessageText(chatId, messageId, caption, {
+        parse_mode: "HTML",
+        reply_markup: emptyMarkup,
+      });
+    } catch (err) {
+      console.error(`[notify] Gagal edit pesan QR Telegram order ${orderId}:`, err);
+      await redis.del(`tg:qr:${orderId}`);
+      return false;
+    }
+  }
+
+  await redis.del(`tg:qr:${orderId}`);
+  console.info(`[notify] Pesan QR Telegram order ${orderId} berhasil diedit.`);
+  return true;
+}
+
 // ─── User Notifications ───────────────────────────────────────────────────────
 
 /**
@@ -193,8 +247,15 @@ export async function notifySuccess(
     `\n\nCek in-game sekarang dan langsung gas! 🚀` +
     pointLine;
 
+  // Telegram: ubah pesan QR yang sudah ada menjadi notif sukses (bukan kirim baru).
+  // Jika tidak ada message_id tersimpan (kedaluwarsa/hilang), fallback kirim pesan baru.
+  const editedTelegram =
+    platform === "TELEGRAM"
+      ? await tryEditTelegramQrMessage(platformUserId, order.id, text).catch(() => false)
+      : false;
+
   const results = await Promise.allSettled([
-    sendToUser(platform, platformUserId, text),
+    editedTelegram ? Promise.resolve() : sendToUser(platform, platformUserId, text),
     platform === "DISCORD"
       ? tryEditDiscordQrMessage(order.id, plainText)
       : Promise.resolve(),
@@ -221,8 +282,13 @@ export async function notifyFailed(
     `Tim kami sudah mendapat notifikasi dan akan segera menindaklanjuti.\n` +
     `Order : ${formatOrderRef(order.paymentRef ?? "")}`;
 
+  const editedTelegram =
+    platform === "TELEGRAM"
+      ? await tryEditTelegramQrMessage(platformUserId, order.id, text).catch(() => false)
+      : false;
+
   await Promise.allSettled([
-    sendToUser(platform, platformUserId, text),
+    editedTelegram ? Promise.resolve() : sendToUser(platform, platformUserId, text),
     platform === "DISCORD"
       ? tryEditDiscordQrMessage(order.id, `😔 **Top up belum berhasil diproses.**\nTim kami sudah mendapat notifikasi. Order: \`${formatOrderRef(order.paymentRef ?? "")}\``)
       : Promise.resolve(),
@@ -243,8 +309,13 @@ export async function notifyExpired(
     `Pesanan ${formatOrderRef(order.paymentRef ?? "")} sudah kadaluarsa.\n` +
     `Tenang, kamu bisa order lagi kapan saja! 😊`;
 
+  const editedTelegram =
+    platform === "TELEGRAM"
+      ? await tryEditTelegramQrMessage(platformUserId, order.id, text).catch(() => false)
+      : false;
+
   await Promise.allSettled([
-    sendToUser(platform, platformUserId, text),
+    editedTelegram ? Promise.resolve() : sendToUser(platform, platformUserId, text),
     platform === "DISCORD"
       ? tryEditDiscordQrMessage(order.id, `⏰ **Waktu pembayaran habis.**\nPesanan \`${formatOrderRef(order.paymentRef ?? "")}\` sudah kadaluarsa. Kamu bisa order lagi kapan saja! 😊`)
       : Promise.resolve(),
